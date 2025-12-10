@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<title>PolyScope: OpenSAFELY Ontology</title>
+<!-- D3.js -->
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<!-- Three.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/controls/OrbitControls.js"></script>
+<style>
+    /* --- ELEGANT DARK THEME --- */
+    :root {
+        --bg: #0f172a;
+        --panel: #1e293b;
+        --ring: #334155; 
+        --text: #e2e8f0;
+        --muted: #94a3b8;
+        --accent: #2dd4bf; /* OpenSAFELY Teal */
+        
+        /* Perspective Colors */
+        --Core: #2dd4bf; /* Teal - OpenSAFELY Core */
+        --Trad: #ef4444; /* Red - Traditional/Status Quo */
+        --Priv: #10b981; /* Green - Privacy Advocates */
+        --Tech: #f59e0b; /* Amber - Tech/Ops */
+        --Lat: #8b5cf6;  /* Purple - Latent/Culture */
+
+        /* Layer Colors (Secondary) */
+        --Infra: #64748b;
+        --Gov: #eab308;
+        --Code: #3b82f6;
+        --Out: #ec4899;
+        --Trust: #f43f5e;
+    }
+
+    html, body {
+        height: 100%; margin: 0; background: var(--bg); color: var(--text);
+        font: 13px/1.5 'Segoe UI', Roboto, Helvetica, sans-serif;
+        overflow: hidden; user-select: none;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* HEADER */
+    header {
+        position: absolute; top: 0; left: 0; width: 100%;
+        padding: 12px 20px; box-sizing: border-box;
+        display: flex; justify-content: space-between; align-items: center;
+        background: rgba(15, 23, 42, 0.9); z-index: 50;
+        border-bottom: 1px solid var(--ring);
+        backdrop-filter: blur(5px);
+        pointer-events: none;
+    }
+    header > * { pointer-events: auto; }
+    h1 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: 0.5px; }
+    .subtitle { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+
+    /* LAYOUT */
+    main {
+        display: grid; 
+        grid-template-columns: 1fr; 
+        grid-template-rows: 1fr 12px 300px; 
+        height: 100%;
+        padding-top: 60px;
+        box-sizing: border-box;
+    }
+
+    /* Resizer Bar */
+    #resizer {
+        background: var(--ring); cursor: row-resize; z-index: 30;
+        display: flex; align-items: center; justify-content: center;
+        transition: background 0.2s; touch-action: none;
+    }
+    #resizer:hover, #resizer:active { background: var(--accent); }
+    #resizer::after {
+        content: ""; width: 40px; height: 4px;
+        background: rgba(255,255,255,0.3); border-radius: 2px;
+    }
+
+    @media (max-width: 800px) { main { grid-template-rows: 1fr 12px 1fr; } }
+
+    /* STAGE */
+    #stage {
+        position: relative; width: 100%; height: 100%;
+        overflow: hidden; cursor: crosshair; background: var(--bg);
+        touch-action: none;
+    }
+    #three-container, #d3-container {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    }
+    
+    /* BOTTOM BAR (LIST) */
+    aside {
+        background: var(--panel); display: flex; flex-direction: column;
+        overflow: hidden; z-index: 20;
+    }
+    .scroller { 
+        flex: 1; overflow-y: auto; padding: 10px;
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 10px; align-content: start;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* DRAGGABLE PANELS */
+    .draggable-panel {
+        position: absolute; 
+        background: rgba(30, 41, 59, 0.98);
+        border: 1px solid var(--ring); border-radius: 8px;
+        z-index: 60;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+        transition: opacity 0.2s;
+        display: flex; flex-direction: column;
+    }
+
+    .panel-header {
+        padding: 8px 10px; background: rgba(255,255,255,0.05);
+        border-bottom: 1px solid var(--ring); cursor: grab;
+        display: flex; justify-content: space-between; align-items: center;
+        border-radius: 8px 8px 0 0; touch-action: none; user-select: none;
+    }
+    .panel-header:active { cursor: grabbing; }
+    
+    .panel-content {
+        padding: 10px; overflow-y: auto; max-height: 60vh; -webkit-overflow-scrolling: touch;
+    }
+
+    /* Panels Positions */
+    #controls { top: 70px; right: 10px; width: 240px; }
+    #legend { top: 350px; right: 10px; width: 240px; } 
+    #tooltip { top: 80px; left: 20px; width: 320px; display: none; }
+    
+    .minimized .panel-content { display: none; }
+
+    /* FORM ELEMENTS */
+    label { display: block; font-size: 10px; color: var(--muted); margin-bottom: 3px; margin-top: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+    label:first-child { margin-top: 0; }
+    select {
+        width: 100%; background: #0f172a; border: 1px solid var(--ring);
+        color: var(--text); padding: 4px; border-radius: 4px; font-size: 11px;
+        appearance: none; outline: none;
+    }
+    input[type=checkbox] { vertical-align: middle; margin-right: 5px; cursor: pointer; }
+
+    /* LEGEND STYLES */
+    .legend-section { margin-bottom: 12px; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 8px; }
+    .legend-title { font-size: 10px; font-weight: 700; color: #fff; margin-bottom: 5px; text-transform: uppercase; }
+    .legend-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 11px; cursor: pointer; }
+    .legend-item:hover { background: rgba(255,255,255,0.05); }
+    .color-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+    /* LIST ITEMS */
+    .item { 
+        border: 1px solid var(--ring); border-radius: 6px;
+        background: rgba(15, 23, 42, 0.5); cursor: pointer; transition: all 0.2s;
+        height: fit-content; border-left: 3px solid transparent;
+        position: relative;
+    }
+    .item:hover { background: #28364a; transform: translateY(-2px); }
+    .item-header { padding: 10px; display: flex; justify-content: space-between; align-items: center; }
+    .item-title { font-weight: 600; font-size: 12px; }
+    .item-meta { font-size: 10px; color: var(--muted); }
+    .item-body { display: none; padding: 0 10px 10px 10px; font-size: 11px; line-height: 1.4; color: #cbd5e1; }
+    .item.active .item-body { display: block; }
+    .item.active { background: #1e3a5f; }
+    
+    .item::before {
+        content: ''; position: absolute; left: -3px; top: 0; bottom: 0; width: 3px;
+        background: var(--layer-color); border-top-left-radius: 6px; border-bottom-left-radius: 6px;
+    }
+
+    /* Labels */
+    .scene-label {
+        position: absolute; color: var(--muted); font-size: 10px; pointer-events: none;
+        transform: translate(-50%, -50%); text-shadow: 0 1px 2px black; white-space: nowrap;
+    }
+    .ctx-badge { 
+        font-size: 9px; padding: 1px 3px; border-radius: 2px; 
+        background: rgba(255,255,255,0.1); color: #ccc; margin-left: 4px;
+        vertical-align: middle;
+    }
+
+    /* D3 */
+    .axis text { fill: var(--muted); font-size: 10px; }
+    .axis path, .axis line { stroke: var(--ring); stroke-dasharray: 2,2; }
+    
+    .score-item { margin-bottom: 6px; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 2px; }
+    .score-header { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); }
+    .score-desc { font-size: 11px; color: #fff; margin-top: 1px; }
+</style>
+</head>
+<body>
+
+<header>
+    <div>
+        <h1>PolyScope: OpenSAFELY Ontology</h1>
+        <div class="subtitle">Trusting People (System) vs. Trusting Code (Lifeworld)</div>
+    </div>
+</header>
+
+<main id="mainLayout">
+    <section id="stage">
+        <div id="three-container"></div>
+        <div id="d3-container" style="display:none;"></div>
+        <div id="labels-container"></div>
+        
+        <div id="tooltip" class="draggable-panel">
+            <div class="panel-header">
+                <span id="tooltip-title" style="font-weight:600; font-size:13px; color:var(--accent);">DETAIL</span>
+                <span class="toggle-btn" style="cursor:pointer; padding:5px;" onclick="document.getElementById('tooltip').style.display='none'">✕</span>
+            </div>
+            <div class="panel-content" id="tooltip-content"></div>
+        </div>
+        
+        <div id="controls" class="draggable-panel">
+            <div class="panel-header">
+                <span>CONTROLS</span>
+                <span class="toggle-btn" style="cursor:pointer; padding:5px;" onclick="document.getElementById('controls').classList.toggle('minimized')">_</span>
+            </div>
+            <div class="panel-content">
+                <label>View Mode</label>
+                <select id="modeSel"><option value="3D">3D Universe</option><option value="2D">2D Chart</option></select>
+
+                <div style="border-top:1px dashed #333; margin-top:10px; padding-top:5px;">
+                    <label style="color:#fff">Axis Mapping</label>
+                    <label>X Axis</label><select id="xSel"></select>
+                    <label>Y Axis</label><select id="ySel"></select>
+                    <div id="zGroup"><label>Z Axis</label><select id="zSel"></select></div>
+                </div>
+
+                <div style="border-top:1px dashed #333; margin-top:10px; padding-top:5px;">
+                    <label style="color:#fff">Visual Mapping</label>
+                    <label>Color</label><select id="colorSel"><option value="persp">Perspective</option><option value="layer">Arch Layer</option></select>
+                    <label>Size</label><select id="sizeSel"><option value="fixed">Fixed</option></select>
+                    <label>Opacity</label><select id="opacitySel"><option value="fixed">Fixed</option></select>
+                    <label>Halo</label><select id="haloSel"><option value="none">None</option><option value="persp">Perspective</option><option value="layer">Arch Layer</option></select>
+                </div>
+                
+                <div style="border-top:1px dashed #333; margin-top:10px; padding-top:5px; display:flex; flex-direction:column; gap:5px;">
+                    <label style="margin:0"><input type="checkbox" id="showLabels"> Show Text Labels</label>
+                    <label style="margin:0"><input type="checkbox" id="showEmojis"> Show Emojis</label>
+                    <label style="margin:0"><input type="checkbox" id="emojiOnly"> Emoji Only (No Point)</label>
+                </div>
+            </div>
+        </div>
+
+        <div id="legend" class="draggable-panel">
+            <div class="panel-header">
+                <span>DUAL FILTER</span>
+                <span class="toggle-btn" style="cursor:pointer; padding:5px;" onclick="document.getElementById('legend').classList.toggle('minimized')">_</span>
+            </div>
+            <div class="panel-content">
+                <div class="legend-item" onclick="toggleAll()">
+                    <input type="checkbox" id="selectAll" checked> 
+                    <span style="font-weight:bold; color:#fff;">(Select All)</span>
+                </div>
+                
+                <div class="legend-section">
+                    <div class="legend-title">Perspective</div>
+                    <div id="perspList"></div>
+                </div>
+                
+                <div class="legend-section" style="border-bottom:none;">
+                    <div class="legend-title">Architecture Layer</div>
+                    <div id="layerList"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div id="resizer"></div>
+
+    <aside>
+        <div style="padding:10px; border-bottom:1px solid var(--ring); font-size:11px; font-weight:600; color:var(--muted); background: rgba(15, 23, 42, 0.8); text-align:center;">
+            DATA NARRATIVES (N=35)
+        </div>
+        <div class="scroller" id="list"></div>
+    </aside>
+</main>
+
+<script>
+    // --- 1. ONTOLOGY ---
+    const METRICS = [
+        { id: 'sec',  label: 'Security (Zero Trust)' },
+        { id: 'tran', label: 'Transparency (Logs)' },
+        { id: 'util', label: 'Utility (Speed)' },
+        { id: 'eq',   label: 'Equitability (Access)' },
+        { id: 'priv', label: 'Privacy (De-ID)' },
+        { id: 'simp', label: 'Simplicity (UX)' },
+        { id: 'stew', label: 'Stewardship (Trust)' },
+        { id: 'cost', label: 'Cost Efficiency' }
+    ];
+
+    const EXPLAINERS = {
+        sec:  { high: "Data never leaves server; Code visits data.", low: "Data download allowed; CSVs via email." },
+        tran: { high: "All code & logs public on GitHub.", low: "Black box; 'Commercial Confidence'." },
+        util: { high: "Answers in minutes across 58m records.", low: "Months for approval and extraction." },
+        eq:   { high: "Open to anyone with code skills.", low: "Elite access only; Paywalls." },
+        priv: { high: "Impossible to re-identify (k-anonymity).", low: "Mosaic effect risk; Row-level access." },
+        simp: { high: "Standardized libraries (ehrQL).", low: "Custom SQL spaghetti; Cleaning data manually." },
+        stew: { high: "Goldacre Review compliant.", low: "Erodes patient consent." },
+        cost: { high: "Cheap compute; Efficient.", low: "Expensive consultants; Duplicate storage." }
+    };
+
+    const PERSPECTIVES = { 
+        Core: { name: "OpenSAFELY Core", color: '#2dd4bf' }, // Teal
+        Trad: { name: "Traditional Research", color: '#ef4444' }, // Red
+        Priv: { name: "Privacy Advocate", color: '#10b981' }, // Green
+        Tech: { name: "Tech / Ops", color: '#f59e0b' }, // Amber
+        Lat:  { name: "Latent / Cultural", color: '#8b5cf6' } // Purple
+    };
+
+    const LAYERS = {
+        Infra: { name: "Infrastructure", color: '#64748b' },
+        Gov:   { name: "Governance",     color: '#eab308' },
+        Code:  { name: "Code / Method",  color: '#3b82f6' },
+        Out:   { name: "Output Control", color: '#ec4899' },
+        Trust: { name: "Public Trust",   color: '#f43f5e' }
+    };
+
+    // --- 2. DATA (35 Points) ---
+    const RAW_DATA = [
+        // CORE PHILOSOPHY
+        { id: 1, persp: "Core", layer: "Infra", emoji: "🏰", title: "Code to Data", desc: "The fundamental shift: You send your question to the data, you don't download the data.", ref: "https://www.opensafely.org/about/", r: { sec: 100, tran: 90, util: 85, eq: 80, priv: 100, simp: 70, stew: 100, cost: 90 } },
+        { id: 2, persp: "Core", layer: "Code", emoji: "🏗️", title: "The Dummy Data", desc: "Researchers write code against fake synthetic data first. Ensures safety before touching real records.", ref: "https://docs.opensafely.org/dummy-data/", r: { sec: 100, tran: 80, util: 90, eq: 90, priv: 100, simp: 60, stew: 95, cost: 95 } },
+        { id: 3, persp: "Core", layer: "Out", emoji: "👮", title: "The Airlock", desc: "Automated and human review of outputs. Only aggregate stats leave the secure environment.", ref: "https://docs.opensafely.org/output-checking/", r: { sec: 95, tran: 100, util: 70, eq: 85, priv: 95, simp: 50, stew: 100, cost: 80 } },
+        { id: 4, persp: "Core", layer: "Gov", emoji: "📜", title: "Public Logs", desc: "Every line of code run against patient data is publicly logged on GitHub. Radical transparency.", ref: "https://jobs.opensafely.org/", r: { sec: 90, tran: 100, util: 80, eq: 95, priv: 80, simp: 60, stew: 100, cost: 90 } },
+        { id: 5, persp: "Core", layer: "Code", emoji: "📦", title: "Reproducible Pipelines", desc: "Modular, reusable code (Actions). Ending the crisis of non-reproducible science.", ref: "https://www.nature.com/articles/s41586-020-2521-4", r: { sec: 90, tran: 95, util: 95, eq: 70, priv: 90, simp: 40, stew: 95, cost: 95 } },
+        
+        // TRADITIONAL (Status Quo)
+        { id: 6, persp: "Trad", layer: "Infra", emoji: "💾", title: "Data Download", desc: "The old way: Extracting CSVs to local laptops. High Simplicity, Zero Security.", ref: "https://www.gov.uk/service-manual/technology/securing-your-cloud-environment", r: { sec: 5, tran: 10, util: 60, eq: 80, priv: 10, simp: 100, stew: 10, cost: 40 } },
+        { id: 7, persp: "Trad", layer: "Gov", emoji: "🤝", title: "Trust-Based Access", desc: "Vetting the researcher ('Good Chap' theory) rather than checking the code.", r: { sec: 20, tran: 30, util: 50, eq: 20, priv: 30, simp: 60, stew: 20, cost: 30 } },
+        { id: 8, persp: "Trad", layer: "Code", emoji: "🍝", title: "Spaghetti SQL", desc: "Ad-hoc, undocumented queries that cannot be audited or reused.", r: { sec: 30, tran: 10, util: 40, eq: 30, priv: 40, simp: 50, stew: 20, cost: 10 } },
+        { id: 9, persp: "Trad", layer: "Out", emoji: "🙈", title: "Small Number Suppression", desc: "Basic rule: Don't publish cells < 5. Vulnerable to differencing attacks.", r: { sec: 40, tran: 50, util: 60, eq: 60, priv: 50, simp: 90, stew: 50, cost: 60 } },
+
+        // PRIVACY ADVOCATES
+        { id: 10, persp: "Priv", layer: "Trust", emoji: "🚫", title: "The Opt-Out", desc: "The ultimate brake. If trust is lost, patients withdraw data.", ref: "https://www.nhs.uk/your-nhs-data-matters/", r: { sec: 60, tran: 80, util: 10, eq: 40, priv: 100, simp: 80, stew: 50, cost: 20 } },
+        { id: 11, persp: "Priv", layer: "Gov", emoji: "🧐", title: "MedConfidential Test", desc: "Can you see who did what to your data? The audit trail requirement.", ref: "https://medconfidential.org/", r: { sec: 90, tran: 100, util: 50, eq: 80, priv: 90, simp: 40, stew: 95, cost: 60 } },
+        { id: 12, persp: "Priv", layer: "Infra", emoji: "🇺🇸", title: "Sovereign Cloud", desc: "Fear of US tech giants (Palantir/AWS) hosting NHS data.", r: { sec: 70, tran: 60, util: 50, eq: 50, priv: 80, simp: 40, stew: 90, cost: 30 } },
+        { id: 13, persp: "Priv", layer: "Out", emoji: "🧩", title: "Mosaic Effect", desc: "Re-identifying patients by combining multiple safe outputs.", r: { sec: 20, tran: 30, util: 90, eq: 30, priv: 10, simp: 20, stew: 10, cost: 10 } },
+
+        // TECH / OPS
+        { id: 14, persp: "Tech", layer: "Infra", emoji: "🐳", title: "Dockerized Analysis", desc: "Portable, isolated containers. Runs the same on dummy data as real data.", r: { sec: 95, tran: 90, util: 90, eq: 60, priv: 90, simp: 30, stew: 90, cost: 80 } },
+        { id: 15, persp: "Tech", layer: "Code", emoji: "📚", title: "ehrQL", desc: "Electronic Health Record Query Language. Specialized syntax for health data.", ref: "https://docs.opensafely.org/ehrql/", r: { sec: 90, tran: 85, util: 95, eq: 50, priv: 90, simp: 60, stew: 90, cost: 85 } },
+        { id: 16, persp: "Tech", layer: "Gov", emoji: "🔄", title: "Continuous Integration", desc: "Automated testing of research code. Bringing DevOps to Epidemiology.", r: { sec: 90, tran: 95, util: 90, eq: 40, priv: 85, simp: 20, stew: 90, cost: 80 } },
+        { id: 17, persp: "Tech", layer: "Infra", emoji: "☁️", title: "Federated Backend", desc: "Running across multiple vendors (TPP, EMIS) without merging databases.", r: { sec: 100, tran: 80, util: 85, eq: 80, priv: 100, simp: 10, stew: 95, cost: 70 } },
+
+        // LATENT / CULTURAL
+        { id: 18, persp: "Lat", layer: "Trust", emoji: "🐦", title: "Ben Goldacre's Feed", desc: "The charismatic founder effect. High Influence, perceived arrogance?", r: { sec: 50, tran: 100, util: 60, eq: 40, priv: 60, simp: 80, stew: 80, cost: 50 } },
+        { id: 19, persp: "Lat", layer: "Code", emoji: "🐍", title: "Python Superiority", desc: "Friction with traditional medical stats folks who prefer Stata/R.", r: { sec: 70, tran: 80, util: 90, eq: 30, priv: 70, simp: 20, stew: 60, cost: 60 } },
+        { id: 20, persp: "Lat", layer: "Gov", emoji: "⏳", title: "The 'Job Server' Queue", desc: "The frustration of non-interactive analysis. Waiting for the 'Batch' to run.", r: { sec: 100, tran: 90, util: 20, eq: 80, priv: 100, simp: 10, stew: 90, cost: 90 } },
+        { id: 21, persp: "Lat", layer: "Infra", emoji: "🧗", title: "Git Literacy Barrier", desc: "The high technical bar excludes many older clinicians/researchers.", r: { sec: 90, tran: 90, util: 60, eq: 10, priv: 90, simp: 5, stew: 60, cost: 60 } },
+        { id: 22, persp: "Lat", layer: "Trust", emoji: "🏰", title: "The Walled Garden", desc: "Critique: OpenSAFELY is open source but closed governance? 'Who decides?'", r: { sec: 90, tran: 80, util: 70, eq: 30, priv: 90, simp: 40, stew: 70, cost: 60 } },
+        { id: 23, persp: "Lat", layer: "Out", emoji: "👻", title: "P-Hacking Prevention", desc: "Pre-registration of code stops researchers 'massaging' results. Unpopular but honest.", r: { sec: 90, tran: 100, util: 40, eq: 90, priv: 80, simp: 20, stew: 100, cost: 90 } },
+        { id: 24, persp: "Lat", layer: "Gov", emoji: "📑", title: "Information Governance (IG)", desc: "The bureaucracy that slows everything down. Necessary evil or obstruction?", r: { sec: 80, tran: 60, util: 10, eq: 50, priv: 90, simp: 5, stew: 70, cost: 10 } },
+        { id: 25, persp: "Lat", layer: "Infra", emoji: "🕸️", title: "Vendor Lock-in Fears", desc: "Is OpenSAFELY becoming the only game in town? Monopoly risk.", r: { sec: 60, tran: 70, util: 80, eq: 40, priv: 70, simp: 50, stew: 40, cost: 50 } },
+        
+        // Expanded Data
+        { id: 26, persp: "Core", layer: "Gov", emoji: "🤝", title: "The '5 Safes' Upgrade", desc: "Moving from Safe People (weak) to Safe Settings/Outputs (strong).", ref: "https://blog.ons.gov.uk/2017/01/27/the-five-safes-data-privacy-at-ons/", r: { sec: 95, tran: 90, util: 85, eq: 85, priv: 95, simp: 60, stew: 100, cost: 90 } },
+        { id: 27, persp: "Trad", layer: "Gov", emoji: "🗄️", title: "The Data Controller", desc: "GP practices legally own the data. Tension between local and national.", r: { sec: 70, tran: 40, util: 30, eq: 40, priv: 80, simp: 10, stew: 60, cost: 20 } },
+        { id: 28, persp: "Tech", layer: "Out", emoji: "📊", title: "Automated Disclosure", desc: "Algorithms checking for small numbers. Removing human bottleneck.", r: { sec: 90, tran: 95, util: 100, eq: 90, priv: 90, simp: 80, stew: 90, cost: 95 } },
+        { id: 29, persp: "Priv", layer: "Trust", emoji: "👁️", title: "Surveillance Capitalism", desc: "Fear that health data trains models for insurance/ads.", r: { sec: 10, tran: 20, util: 90, eq: 10, priv: 5, simp: 60, stew: 5, cost: 80 } },
+        { id: 30, persp: "Lat", layer: "Code", emoji: "🔧", title: "Study Definition", desc: "The core python file defining the cohort. The heart of the machine.", r: { sec: 90, tran: 100, util: 95, eq: 60, priv: 95, simp: 50, stew: 95, cost: 90 } },
+        { id: 31, persp: "Core", layer: "Out", emoji: "📢", title: "Publication Bias", desc: "Forcing publication of null results because the code was pre-registered.", r: { sec: 80, tran: 100, util: 50, eq: 95, priv: 80, simp: 30, stew: 100, cost: 70 } },
+        { id: 32, persp: "Trad", layer: "Code", emoji: "🙅", title: "Excel Dependency", desc: "Researchers who just want a spreadsheet. The resistance.", r: { sec: 10, tran: 10, util: 60, eq: 90, priv: 10, simp: 100, stew: 10, cost: 20 } },
+        { id: 33, persp: "Lat", layer: "Trust", emoji: "🏥", title: "NHS Brand Halo", desc: "Trusting the NHS logo but not the tech partners underneath.", r: { sec: 50, tran: 40, util: 60, eq: 80, priv: 60, simp: 90, stew: 70, cost: 60 } },
+        { id: 34, persp: "Tech", layer: "Infra", emoji: "⚡", title: "Just-in-Time Access", desc: "Permissions granted only for the millisecond the code runs.", r: { sec: 100, tran: 95, util: 90, eq: 70, priv: 100, simp: 20, stew: 95, cost: 85 } },
+        { id: 35, persp: "Priv", layer: "Gov", emoji: "⚖️", title: "Legal Basis (COPI)", desc: "Emergency powers (Covid) vs BAU. The legal shaky ground.", r: { sec: 70, tran: 80, util: 90, eq: 80, priv: 60, simp: 50, stew: 60, cost: 80 } }
+    ];
+
+    // --- 3. SETUP ---
+    const state = { 
+        mode: '3D', 
+        x: 'sec', y: 'tran', z: 'priv', 
+        color: 'persp', size: 'fixed', opacity: 'fixed', halo: 'none', 
+        showEmojis: false, emojiOnly: false, showLabels: false,
+        selectedPerspectives: Object.keys(PERSPECTIVES),
+        selectedLayers: Object.keys(LAYERS)
+    };
+    
+    const $ = id => document.getElementById(id);
+    
+    const getData = () => RAW_DATA.filter(d => 
+        state.selectedPerspectives.includes(d.persp) && 
+        state.selectedLayers.includes(d.layer)
+    );
+
+    const populate = (sel) => {
+        METRICS.forEach(m => {
+            const opt = document.createElement('option'); opt.value = m.id; opt.textContent = m.label; sel.appendChild(opt);
+        });
+    };
+    populate($('xSel')); populate($('ySel')); populate($('zSel'));
+    $('xSel').value = state.x; $('ySel').value = state.y; $('zSel').value = state.z;
+    populate($('sizeSel')); populate($('opacitySel')); populate($('haloSel'));
+    populate($('colorSel'));
+
+    const initLegend = () => {
+        const pList = $('perspList');
+        Object.keys(PERSPECTIVES).forEach(k => {
+            const div = document.createElement('div');
+            div.className = 'legend-item';
+            div.innerHTML = `<input type="checkbox" value="${k}" checked> <div class="color-dot" style="background:${PERSPECTIVES[k].color}"></div><span>${PERSPECTIVES[k].name}</span>`;
+            div.querySelector('input').onchange = (e) => togglePersp(k, e.target.checked);
+            pList.appendChild(div);
+        });
+
+        const lList = $('layerList');
+        Object.keys(LAYERS).forEach(k => {
+            const div = document.createElement('div');
+            div.className = 'legend-item';
+            div.innerHTML = `<input type="checkbox" value="${k}" checked> <div class="color-dot" style="background:${LAYERS[k].color}"></div><span>${LAYERS[k].name}</span>`;
+            div.querySelector('input').onchange = (e) => toggleLayer(k, e.target.checked);
+            lList.appendChild(div);
+        });
+    };
+    
+    const togglePersp = (key, checked) => {
+        if(checked) { if(!state.selectedPerspectives.includes(key)) state.selectedPerspectives.push(key); }
+        else { state.selectedPerspectives = state.selectedPerspectives.filter(p => p !== key); }
+        updateViz();
+    };
+
+    const toggleLayer = (key, checked) => {
+        if(checked) { if(!state.selectedLayers.includes(key)) state.selectedLayers.push(key); }
+        else { state.selectedLayers = state.selectedLayers.filter(p => p !== key); }
+        updateViz();
+    };
+
+    window.toggleAll = () => {
+        const chk = $('selectAll').checked;
+        state.selectedPerspectives = chk ? Object.keys(PERSPECTIVES) : [];
+        state.selectedLayers = chk ? Object.keys(LAYERS) : [];
+        document.querySelectorAll('#legend input').forEach(i => i.checked = chk);
+        updateViz();
+    };
+    
+    initLegend();
+
+    // DRAG & RESIZE (Keeping existing logic)
+    function makeDraggable(panel, handle) {
+        let isDragging = false, startX, startY, startLeft, startTop;
+        const start = (e) => {
+            if(e.target.closest('.toggle-btn') || e.target.closest('.panel-content')) return;
+            isDragging = true;
+            const evt = e.touches ? e.touches[0] : e;
+            startX = evt.clientX; startY = evt.clientY;
+            const rect = panel.getBoundingClientRect();
+            startLeft = rect.left; startTop = rect.top;
+            e.preventDefault();
+        };
+        const move = (e) => {
+            if(!isDragging) return;
+            const evt = e.touches ? e.touches[0] : e;
+            const dx = evt.clientX - startX; const dy = evt.clientY - startY;
+            panel.style.left = (startLeft + dx) + 'px'; panel.style.top = (startTop + dy) + 'px';
+            panel.style.right = 'auto';
+        };
+        const end = () => { isDragging = false; };
+        handle.addEventListener('mousedown', start); handle.addEventListener('touchstart', start);
+        document.addEventListener('mousemove', move); document.addEventListener('touchmove', move, {passive:false});
+        document.addEventListener('mouseup', end); document.addEventListener('touchend', end);
+    }
+    makeDraggable($('controls'), $('controls').querySelector('.panel-header'));
+    makeDraggable($('legend'), $('legend').querySelector('.panel-header'));
+    makeDraggable($('tooltip'), $('tooltip').querySelector('.panel-header'));
+
+    const initResizer = () => {
+        let isResizing = false;
+        const start = (e) => { isResizing = true; e.preventDefault(); };
+        const move = (e) => {
+            if(!isResizing) return;
+            const evt = e.touches ? e.touches[0] : e;
+            const totalH = window.innerHeight;
+            const y = Math.max(100, Math.min(evt.clientY, totalH - 100));
+            $('mainLayout').style.gridTemplateRows = `1fr 12px ${totalH - y - 12}px`;
+            onResize();
+        };
+        const end = () => { isResizing = false; onResize(); };
+        $('resizer').addEventListener('mousedown', start); $('resizer').addEventListener('touchstart', start);
+        document.addEventListener('mousemove', move); document.addEventListener('touchmove', move, {passive:false});
+        document.addEventListener('mouseup', end); document.addEventListener('touchend', end);
+    };
+    initResizer();
+
+    // --- 3D ENGINE ---
+    let scene, camera, renderer, controls, raycaster, group;
+    const mouse = new THREE.Vector2();
+
+    function init3D() {
+        if(scene) return;
+        scene = new THREE.Scene(); scene.fog = new THREE.FogExp2(0x0f172a, 0.002);
+        camera = new THREE.PerspectiveCamera(60, $('stage').clientWidth / $('stage').clientHeight, 0.1, 1000);
+        camera.position.set(120, 100, 150);
+        renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        renderer.setSize($('stage').clientWidth, $('stage').clientHeight);
+        $('three-container').appendChild(renderer.domElement);
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true; controls.dampingFactor = 0.05;
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        scene.add(new THREE.DirectionalLight(0xffffff, 0.8));
+        
+        const origin = new THREE.Vector3(-50, -50, -50); const color = 0x22d3ee;
+        [new THREE.Vector3(1,0,0), new THREE.Vector3(0,1,0), new THREE.Vector3(0,0,1)].forEach(dir => {
+            scene.add(new THREE.ArrowHelper(dir, origin, 135, color, 6, 4));
+        });
+
+        group = new THREE.Group(); scene.add(group);
+        raycaster = new THREE.Raycaster(); raycaster.params.Points.threshold = 10;
+
+        window.addEventListener('resize', onResize);
+        const interact = (e) => {
+            if(e.target.closest('.draggable-panel') || e.target.id==='resizer') return;
+            const rect = $('three-container').getBoundingClientRect();
+            const cx = e.clientX || (e.touches && e.touches[0].clientX);
+            const cy = e.clientY || (e.touches && e.touches[0].clientY);
+            if(!cx) return;
+            mouse.x = ((cx - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((cy - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(group.children);
+            if(intersects.length > 0 && intersects[0].object.userData.id) {
+                if(e.type==='click' || e.type==='touchstart') showTooltip(intersects[0].object.userData);
+                $('stage').style.cursor = 'pointer';
+            } else { $('stage').style.cursor = 'default'; }
+        };
+        ['click','mousemove','touchstart'].forEach(evt => $('three-container').addEventListener(evt, interact, {passive:false}));
+        animate();
+    }
+
+    function onResize() {
+        if(state.mode === '3D') {
+            camera.aspect = $('stage').clientWidth / $('stage').clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize($('stage').clientWidth, $('stage').clientHeight);
+        } else { init2D(); }
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        if(state.mode==='3D') { 
+            controls.update(); 
+            renderer.render(scene, camera); 
+        }
+    }
+
+    // --- 2D ENGINE ---
+    let svg2d;
+    function init2D() {
+        $('d3-container').innerHTML = '';
+        const w = $('d3-container').clientWidth, h = $('d3-container').clientHeight;
+        if(h < 10) return;
+        
+        svg2d = d3.select("#d3-container").append("svg").attr("width", w).attr("height", h);
+        const m = {top:60,right:30,bottom:40,left:60};
+        const zoomRect = svg2d.append("rect").attr("width", w).attr("height", h).style("fill", "none").style("pointer-events", "all"); // Zoom Catcher BACK
+        const g = svg2d.append("g").attr("transform", `translate(${m.left},${m.top})`);
+        const iw = w-m.left-m.right, ih = h-m.top-m.bottom;
+
+        svg2d.append("defs").append("clipPath").attr("id", "clip").append("rect").attr("width", iw).attr("height", ih);
+
+        const xScale = d3.scaleLinear().domain([0,100]).range([0,iw]);
+        const yScale = d3.scaleLinear().domain([0,100]).range([ih,0]);
+        
+        const xAxisG = g.append("g").attr("class", "axis").attr("transform", `translate(0,${ih})`);
+        const yAxisG = g.append("g").attr("class", "axis");
+        
+        g.append("text").attr("x", iw).attr("y", ih+30).attr("fill", "var(--accent)").attr("text-anchor", "end").style("font-weight","bold").text(getLabel(state.x));
+        g.append("text").attr("transform", "rotate(-90)").attr("x", -ih/2).attr("y", -45).attr("fill", "var(--accent)").style("text-anchor", "middle").style("font-weight","bold").text(getLabel(state.y));
+
+        const content = g.append("g").attr("clip-path", "url(#clip)");
+
+        const renderNodes = () => {
+            content.selectAll("*").remove();
+            const data = getData();
+            
+            const nodes = content.selectAll(".n").data(data).enter().append("g")
+                .attr("class", "n")
+                .attr("transform", d => `translate(${xScale(d.r[state.x]||0)},${yScale(d.r[state.y]||0)})`)
+                .style("cursor", "pointer")
+                .on("click", (e,d) => { e.stopPropagation(); showTooltip(d); });
+
+            if(state.halo!=='none') {
+                nodes.append("circle").attr("r", d => getRadius(d,8) + getHalo(d,8)).attr("fill", d=>getHaloColor(d)).attr("opacity",0.2);
+            }
+
+            if (!state.emojiOnly) {
+                nodes.append("circle").attr("r", d=>getRadius(d,8)).attr("fill", d=>getColor(d)).attr("opacity", d=>getOpacity(d)).attr("stroke","#fff").attr("stroke-width",1.5);
+            }
+
+            if (state.showEmojis || state.emojiOnly) {
+                nodes.append("text").text(d=>d.emoji).attr("dy","0.35em").attr("text-anchor","middle").style("font-size", d=>(getRadius(d,8)*1.2)+"px").style("pointer-events","none");
+            }
+            
+            // Hit Area
+            nodes.append("circle").attr("r", 30).attr("fill", "transparent");
+
+            if(state.showLabels) {
+                content.selectAll(".lbl").data(data).enter().append("text")
+                    .attr("x", d=>xScale(d.r[state.x]||0)).attr("y", d=>yScale(d.r[state.y]||0)+getRadius(d,8)+15)
+                    .text(d=>d.title).attr("fill","#ccc").style("font-size","10px").attr("text-anchor","middle").style("pointer-events","none").style("text-shadow","0 1px 2px black");
+            }
+        }
+
+        const zoom = d3.zoom()
+            .scaleExtent([0.5, 5])
+            .extent([[0, 0], [w, h]])
+            .on("zoom", (event) => {
+                const newX = event.transform.rescaleX(xScale);
+                const newY = event.transform.rescaleY(yScale);
+                xAxisG.call(d3.axisBottom(newX).tickSize(-ih));
+                yAxisG.call(d3.axisLeft(newY).tickSize(-iw));
+                content.selectAll(".n").attr("transform", d => `translate(${newX(d.r[state.x]||0)},${newY(d.r[state.y]||0)})`);
+                if(state.showLabels) {
+                    content.selectAll("text:not([dy])")
+                        .attr("x", d=>newX(d.r[state.x]||0)).attr("y", d=>newY(d.r[state.y]||0)+getRadius(d,8)+15);
+                }
+            });
+        
+        xAxisG.call(d3.axisBottom(xScale).tickSize(-ih));
+        yAxisG.call(d3.axisLeft(yScale).tickSize(-iw));
+        renderNodes();
+        zoomRect.call(zoom);
+    }
+
+    // --- LOGIC ---
+    function getLabel(id) { return METRICS.find(m => m.id===id)?.label || id; }
+    function getColor(d) {
+        if(state.color==='persp') return PERSPECTIVES[d.persp].color;
+        if(state.color==='layer') return LAYERS[d.layer].color;
+        const val = d.r[state.color]||0; return `hsl(${val*1.2}, 70%, 50%)`;
+    }
+    function getRadius(d, b) { return state.size==='fixed' ? b : b * (0.5 + (d.r[state.size]||0)/100 * 2.0); }
+    function getOpacity(d) { return state.opacity==='fixed' ? 0.9 : 0.2 + (d.r[state.opacity]||0)/100 * 0.8; }
+    
+    function getHalo(d, b) { 
+        if(state.halo==='none') return 0;
+        if(state.halo==='persp' || state.halo==='layer') return b * 1.5; 
+        return (d.r[state.halo]||0)/100 * (b*2); 
+    }
+    function getHaloColor(d) {
+        if(state.halo==='persp') return PERSPECTIVES[d.persp].color;
+        if(state.halo==='layer') return LAYERS[d.layer].color;
+        return getColor(d); 
+    }
+    function getExplainer(k, v) { return v>=50 ? EXPLAINERS[k].high : EXPLAINERS[k].low; }
+
+    function makeObject(d, x, y, z, rad, color, op) {
+        if (state.showEmojis || state.emojiOnly) {
+            const cvs = document.createElement('canvas'); cvs.width = 128; cvs.height = 128;
+            const ctx = cvs.getContext('2d');
+            if (!state.emojiOnly) {
+                ctx.beginPath(); ctx.arc(64,64,60,0,Math.PI*2);
+                ctx.fillStyle = color; ctx.globalAlpha = op; ctx.fill();
+                ctx.lineWidth = 4; ctx.strokeStyle = '#fff'; ctx.globalAlpha = 1; ctx.stroke();
+            }
+            ctx.font = '80px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#fff'; ctx.fillText(d.emoji, 64, 70);
+            const tex = new THREE.CanvasTexture(cvs);
+            const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
+            const spr = new THREE.Sprite(mat);
+            spr.scale.set(rad*3, rad*3, 1);
+            return spr;
+        } else {
+            const geo = new THREE.SphereGeometry(rad, 32, 32);
+            const mat = new THREE.MeshLambertMaterial({ color: color, transparent: true, opacity: op });
+            return new THREE.Mesh(geo, mat);
+        }
+    }
+
+    // Label Sprite Creator
+    function makeTextSprite(text, color='#ccc', size=1) {
+        const cvs = document.createElement('canvas'); 
+        const ctx = cvs.getContext('2d'); ctx.font = 'Bold 24px Arial';
+        const w = Math.ceil(ctx.measureText(text).width)+10; cvs.width = w; cvs.height = 30;
+        ctx.font = 'Bold 24px Arial'; ctx.fillStyle = color; 
+        ctx.shadowColor = 'black'; ctx.shadowBlur = 4; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(text, w/2, 15);
+        const tex = new THREE.CanvasTexture(cvs);
+        const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: true }); 
+        const spr = new THREE.Sprite(mat); spr.scale.set(w*0.3*size, 9*size, 1);
+        return spr;
+    }
+
+    function updateViz() {
+        ['x','y','z','color','size','opacity','halo','mode'].forEach(k => state[k] = $(k+'Sel').value);
+        state.showEmojis = $('showEmojis').checked;
+        state.emojiOnly = $('emojiOnly').checked;
+        state.showLabels = $('showLabels').checked;
+        
+        if(state.mode==='3D') {
+            $('three-container').style.display='block'; $('d3-container').style.display='none';
+            $('zGroup').style.display='block'; init3D(); update3D();
+        } else {
+            $('three-container').style.display='none'; $('d3-container').style.display='block';
+            $('zGroup').style.display='none'; init2D();
+        }
+        renderList();
+    }
+
+    function update3D() {
+        group.clear(); scene.userData.labels = [];
+        const data = getData();
+
+        data.forEach(d => {
+            const x = (d.r[state.x]||0)-50, y = (d.r[state.y]||0)-50, z = (d.r[state.z]||0)-50;
+            const rad = getRadius(d, 3);
+            
+            const mesh = makeObject(d, x, y, z, rad, getColor(d), getOpacity(d));
+            mesh.position.set(x,y,z); mesh.userData = d; group.add(mesh);
+
+            const h = getHalo(d, rad);
+            if(h > 0.1) {
+                if(state.showEmojis || state.emojiOnly) {
+                    const hCvs = document.createElement('canvas'); hCvs.width=64; hCvs.height=64;
+                    const hCtx = hCvs.getContext('2d'); hCtx.beginPath(); hCtx.arc(32,32,30,0,Math.PI*2);
+                    hCtx.fillStyle = getHaloColor(d); hCtx.globalAlpha=0.2; hCtx.fill();
+                    const hSpr = new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(hCvs), transparent:true, depthWrite:false}));
+                    hSpr.scale.set((rad+h)*3, (rad+h)*3, 1); hSpr.position.set(x,y,z-0.1); group.add(hSpr);
+                } else {
+                    const hGeo = new THREE.SphereGeometry(rad+h, 32, 32);
+                    const hMat = new THREE.MeshBasicMaterial({ color: getHaloColor(d), transparent: true, opacity: 0.15, wireframe: false, depthWrite: false });
+                    const hMesh = new THREE.Mesh(hGeo, hMat);
+                    hMesh.position.set(x,y,z); group.add(hMesh);
+                }
+            }
+
+            if(state.showLabels) {
+                const lbl = makeTextSprite(d.title);
+                lbl.position.set(x, y - (rad*2.5) - 2, z); 
+                group.add(lbl);
+            }
+        });
+        
+        const addLbl = (tx, px, py, pz) => {
+            const s = makeTextSprite(tx, '#2dd4bf', 1.5); s.position.set(px,py,pz); group.add(s);
+        };
+        addLbl(getLabel(state.x)+" →", 85, -50, -50);
+        addLbl(getLabel(state.y)+" ↑", -50, 85, -50);
+        addLbl(getLabel(state.z)+" ↙", -50, -50, 85);
+    }
+
+    function showTooltip(d) {
+        $('tooltip').style.display = 'flex';
+        $('tooltip-title').textContent = d.title; // Set Title
+        
+        let h = `<div style="font-size:11px;color:#999;margin-bottom:10px;">${PERSPECTIVES[d.persp].name} · ${LAYERS[d.layer].name}</div>
+            <p style="font-size:12px;color:#e2e8f0;font-style:italic;margin-bottom:12px;padding-left:8px;border-left:2px solid var(--accent)">"${d.desc}"</p>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">`;
+        
+        METRICS.forEach(m => {
+            const isVis = [state.x, state.y, (state.mode==='3D'?state.z:null), state.color, state.size, state.opacity, state.halo].includes(m.id);
+            let tag = '';
+            if(m.id===state.x) tag='X'; else if(m.id===state.y) tag='Y'; else if(m.id===state.z && state.mode==='3D') tag='Z';
+            else if(m.id===state.size) tag='Size'; else if(m.id===state.color) tag='Color'; else if(m.id===state.halo) tag='Halo';
+            
+            h += `<div class="score-item">
+                <div class="score-header"><span>${m.label} ${tag ? `<span class="ctx-badge">${tag}</span>` : ''}</span> <span style="font-weight:bold;color:${PERSPECTIVES[d.persp].color}">${d.r[m.id]}</span></div>
+                <div class="score-desc" style="font-size:10px; color:#ccc">${getExplainer(m.id, d.r[m.id])}</div>
+            </div>`;
+        });
+        h += `</div>
+            <div style="text-align:right; font-size:11px; margin-top:10px;">
+                <a href="${d.ref || '#'}" target="_blank">Source Link ↗</a>
+            </div>`;
+        $('tooltip-content').innerHTML = h;
+    }
+
+    function renderList() {
+        const el = $('list'); el.innerHTML = '';
+        getData().forEach(d => {
+            const div = document.createElement('div');
+            div.className = `item`;
+            div.style.setProperty('--layer-color', LAYERS[d.layer].color); 
+            div.style.borderLeftColor = PERSPECTIVES[d.persp].color;
+            div.innerHTML = `
+                <div class="item-header">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-size:18px;">${state.showEmojis || state.emojiOnly ? d.emoji : ''}</span>
+                        <div><div class="item-title">${d.title}</div><div class="item-meta">${d.persp} · ${d.layer}</div></div>
+                    </div>
+                </div>
+                <div class="item-body"><p>${d.desc}</p></div>`;
+            div.onclick = () => div.classList.toggle('active');
+            el.appendChild(div);
+        });
+    }
+
+    ['xSel','ySel','zSel','colorSel','sizeSel','opacitySel','haloSel','modeSel'].forEach(i => $(i).addEventListener('change', updateViz));
+    $('showLabels').addEventListener('change', updateViz);
+    $('showEmojis').addEventListener('change', updateViz);
+    $('emojiOnly').addEventListener('change', updateViz);
+    init3D(); updateViz();
+
+</script>
+</body>
+</html>
