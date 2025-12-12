@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
-<title>PolyScope: OpenSAFELY Ontology</title>
+<title>PolyScope: OpenSAFELY Ontology V2.0</title>
 <!-- D3.js -->
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <!-- Three.js -->
@@ -12,31 +12,33 @@
 <style>
     /* --- ELEGANT DARK THEME --- */
     :root {
-        --bg: #0f172a;
-        --panel: #1e293b;
-        --ring: #334155; 
-        --text: #e2e8f0;
-        --muted: #94a3b8;
-        --accent: #2dd4bf; /* OpenSAFELY Teal */
+        --bg: #0f172a; /* Slate 900 */
+        --panel: #1e293b; /* Slate 800 */
+        --ring: #334155; /* Slate 700 */ 
+        --text: #e2e8f0; /* Slate 200 */
+        --muted: #94a3b8; /* Slate 400 */
+        --accent: #2dd4bf; /* OpenSAFELY Teal 400 */
         
-        /* Perspective Colors */
-        --Core: #2dd4bf; /* Teal - OpenSAFELY Core */
-        --Trad: #ef4444; /* Red - Traditional/Status Quo */
-        --Priv: #10b981; /* Green - Privacy Advocates */
-        --Tech: #f59e0b; /* Amber - Tech/Ops */
-        --Lat: #8b5cf6;  /* Purple - Latent/Culture */
+        /* Perspective Colors (Hex definitions, matching CSS vars) */
+        --Core: #2dd4bf; 
+        --Trad: #f43f5e; 
+        --Priv: #10b981; 
+        --Tech: #f59e0b; 
+        --Lat: #8b5cf6;  
+        --Pat: #f472b6;  
+        --Pub: #3b82f6;  
 
-        /* Layer Colors (Secondary) */
-        --Infra: #64748b;
-        --Gov: #eab308;
-        --Code: #3b82f6;
-        --Out: #ec4899;
-        --Trust: #f43f5e;
+        /* Layer Colors (Hex definitions, matching CSS vars) */
+        --Infra: #64748b; 
+        --Gov: #eab308;   
+        --Code: #3b82f6;  
+        --Out: #ec4899;   
+        --Trust: #9333ea; 
     }
 
     html, body {
         height: 100%; margin: 0; background: var(--bg); color: var(--text);
-        font: 13px/1.5 'Segoe UI', Roboto, Helvetica, sans-serif;
+        font: 14px/1.5 'Inter', Roboto, Helvetica, sans-serif;
         overflow: hidden; user-select: none;
         -webkit-tap-highlight-color: transparent;
     }
@@ -47,7 +49,7 @@
     /* HEADER */
     header {
         position: absolute; top: 0; left: 0; width: 100%;
-        padding: 12px 20px; box-sizing: border-box;
+        padding: 15px 25px; box-sizing: border-box;
         display: flex; justify-content: space-between; align-items: center;
         background: rgba(15, 23, 42, 0.9); z-index: 50;
         border-bottom: 1px solid var(--ring);
@@ -55,8 +57,8 @@
         pointer-events: none;
     }
     header > * { pointer-events: auto; }
-    h1 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: 0.5px; }
-    .subtitle { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+    h1 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: 0.5px; color: #fff; }
+    .header-right { font-size: 14px; font-weight: 600; color: var(--muted); letter-spacing: 0.5px; }
 
     /* LAYOUT */
     main {
@@ -85,11 +87,15 @@
     /* STAGE */
     #stage {
         position: relative; width: 100%; height: 100%;
-        overflow: hidden; cursor: crosshair; background: var(--bg);
+        overflow: hidden; cursor: grab; background: var(--bg);
         touch-action: none;
     }
+    #stage:active { cursor: grabbing; }
     #three-container, #d3-container {
         position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    }
+    #labels-container {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;
     }
     
     /* BOTTOM BAR (LIST) */
@@ -99,8 +105,11 @@
     }
     .scroller { 
         flex: 1; overflow-y: auto; padding: 10px;
-        display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 10px; align-content: start;
+        /* Updated List Layout for better visibility/readability */
+        display: flex; /* Change grid to flex wrap */
+        flex-wrap: wrap; 
+        gap: 10px; 
+        align-content: flex-start;
         -webkit-overflow-scrolling: touch;
     }
     
@@ -113,91 +122,285 @@
         box-shadow: 0 10px 40px rgba(0,0,0,0.6);
         transition: opacity 0.2s;
         display: flex; flex-direction: column;
+        min-width: 240px;
+        max-height: 80vh; /* Allow for vertical scrolling if content overflows */
     }
 
     .panel-header {
-        padding: 8px 10px; background: rgba(255,255,255,0.05);
+        padding: 10px 15px; background: rgba(255,255,255,0.05);
         border-bottom: 1px solid var(--ring); cursor: grab;
         display: flex; justify-content: space-between; align-items: center;
         border-radius: 8px 8px 0 0; touch-action: none; user-select: none;
+        font-weight: 700; font-size: 11px; text-transform: uppercase; color: var(--accent);
     }
     .panel-header:active { cursor: grabbing; }
     
     .panel-content {
-        padding: 10px; overflow-y: auto; max-height: 60vh; -webkit-overflow-scrolling: touch;
+        padding: 15px; overflow-y: auto; 
+        /* max-height is now handled by the parent .draggable-panel */
     }
 
-    /* Panels Positions */
-    #controls { top: 70px; right: 10px; width: 240px; }
-    #legend { top: 350px; right: 10px; width: 240px; } 
-    #tooltip { top: 80px; left: 20px; width: 320px; display: none; }
+    /* Panels Positions - Responsive Adjustments */
+    #controls { top: 70px; right: 10px; }
+    #legend { top: 350px; right: 10px; } 
+    #tooltip { top: 80px; left: 20px; width: 350px; max-width: 90vw; display: none; }
+    #editor { top: 70px; left: 400px; width: 350px; max-width: 90vw; display: none; }
     
     .minimized .panel-content { display: none; }
+    .minimized .panel-header { border-radius: 8px; border-bottom: none; }
 
     /* FORM ELEMENTS */
-    label { display: block; font-size: 10px; color: var(--muted); margin-bottom: 3px; margin-top: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+    label { display: block; font-size: 10px; color: var(--muted); margin-bottom: 3px; margin-top: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
     label:first-child { margin-top: 0; }
-    select {
+    select, input[type=text], textarea {
         width: 100%; background: #0f172a; border: 1px solid var(--ring);
-        color: var(--text); padding: 4px; border-radius: 4px; font-size: 11px;
-        appearance: none; outline: none;
+        color: var(--text); padding: 6px 8px; border-radius: 4px; font-size: 12px;
+        appearance: none; outline: none; transition: border-color 0.2s;
+        resize: vertical;
     }
-    input[type=checkbox] { vertical-align: middle; margin-right: 5px; cursor: pointer; }
+    input[type=range] { width: calc(100% - 70px); vertical-align: middle; }
+    .range-group { display: flex; align-items: center; gap: 10px; margin-top: 5px; }
+    .range-val { width: 50px; text-align: right; color: var(--accent); font-weight: 700; }
+
+    select:focus, input[type=text]:focus, textarea:focus { border-color: var(--accent); }
+    input[type=checkbox] { vertical-align: middle; margin-right: 5px; cursor: pointer; accent-color: var(--accent); }
+
+    /* BUTTONS */
+    .btn-group { display: flex; justify-content: space-between; gap: 10px; margin-top: 20px; }
+    .btn {
+        padding: 8px 15px; border-radius: 4px; font-weight: 700; cursor: pointer; transition: background-color 0.2s;
+        text-align: center; font-size: 13px;
+        border: 1px solid transparent;
+    }
+    .btn-primary { background: var(--accent); color: var(--bg); }
+    .btn-primary:hover { background: #1ed4c0; }
+    .btn-secondary { background: var(--panel); color: var(--text); border-color: var(--ring); }
+    .btn-secondary:hover { background: #28364a; }
+    .btn-danger { background: #dc2626; color: #fff; }
+    .btn-danger:hover { background: #b91c1c; }
+
 
     /* LEGEND STYLES */
     .legend-section { margin-bottom: 12px; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 8px; }
     .legend-title { font-size: 10px; font-weight: 700; color: #fff; margin-bottom: 5px; text-transform: uppercase; }
-    .legend-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 11px; cursor: pointer; }
-    .legend-item:hover { background: rgba(255,255,255,0.05); }
-    .color-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .legend-item { display: flex; align-items: center; gap: 8px; padding: 4px 6px; font-size: 12px; cursor: pointer; border-radius: 4px; }
+    .legend-item:hover { background: rgba(255,255,255,0.08); }
+    .color-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 5px rgba(0,0,0,0.5); }
 
-    /* LIST ITEMS */
+    /* LIST ITEMS (Refined UI) */
     .item { 
-        border: 1px solid var(--ring); border-radius: 6px;
-        background: rgba(15, 23, 42, 0.5); cursor: pointer; transition: all 0.2s;
-        height: fit-content; border-left: 3px solid transparent;
+        /* FIX: Adjusted for contemporary list layout */
+        width: calc(100% - 10px); /* Fill flex container width minus gap */
+        max-width: 300px;
+        border: 1px solid var(--ring); 
+        border-radius: 8px;
+        background: #1e293b; 
+        cursor: pointer; 
+        transition: all 0.2s;
         position: relative;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        flex-shrink: 0; /* Important for flex layout */
+        margin: 0 5px 10px 5px; /* Manual margin to handle spacing in flex wrap */
     }
-    .item:hover { background: #28364a; transform: translateY(-2px); }
-    .item-header { padding: 10px; display: flex; justify-content: space-between; align-items: center; }
-    .item-title { font-weight: 600; font-size: 12px; }
-    .item-meta { font-size: 10px; color: var(--muted); }
-    .item-body { display: none; padding: 0 10px 10px 10px; font-size: 11px; line-height: 1.4; color: #cbd5e1; }
+    .item:hover { 
+        background: #28364a; 
+        transform: translateY(-1px); 
+        border-color: var(--accent); 
+    }
     .item.active .item-body { display: block; }
-    .item.active { background: #1e3a5f; }
+    .item.active { 
+        background: #1e3a5f; 
+        border-color: var(--accent); 
+        box-shadow: 0 0 10px rgba(45, 212, 191, 0.3); /* Accent glow */
+    }
+
+    .item-header { 
+        padding: 12px 10px; /* Increased padding */
+        display: flex; 
+        align-items: center; 
+        gap: 10px; 
+        border-bottom: 1px solid transparent; 
+    }
+    .item.active .item-header {
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .item-emoji { 
+        font-size: 20px; 
+        line-height: 1; 
+    }
+    .item-info { flex-grow: 1; }
+    .item-title { 
+        font-weight: 700; /* Bolder title */
+        font-size: 15px; 
+        line-height: 1.2; 
+        color: #fff; 
+    }
+    .item-meta { 
+        font-size: 10px; 
+        color: var(--accent); /* Accent color for metadata */
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 600;
+    }
+    .item-body { 
+        display: none; 
+        padding: 0 10px 10px 10px; 
+        font-size: 12px; 
+        line-height: 1.6; 
+        color: #cbd5e1; 
+        margin-top: 5px; 
+    }
     
+    /* Left Border Indicator */
     .item::before {
-        content: ''; position: absolute; left: -3px; top: 0; bottom: 0; width: 3px;
-        background: var(--layer-color); border-top-left-radius: 6px; border-bottom-left-radius: 6px;
+        content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+        background: var(--layer-color); 
+        border-radius: 8px 0 0 8px;
     }
 
-    /* Labels */
+    /* Tooltip Styling (Finessed Detail Panel) */
+    #tooltip, #editor {
+        box-shadow: 0 10px 50px rgba(0,0,0,0.8);
+    }
+    #tooltip-content .narrative-desc {
+        font-size: 13px;
+        color: #fff;
+        font-style: italic;
+        line-height: 1.5;
+        margin-bottom: 15px;
+        padding: 10px 15px;
+        border-left: 4px solid var(--accent); /* Color determined by JS */
+        background: rgba(255,255,255,0.05);
+        border-radius: 4px;
+    }
+
+    /* Dimension Toggle UI */
+    .dimension-toggle-container {
+        margin-top: 15px;
+        padding-top: 10px;
+        border-top: 1px solid var(--ring);
+        cursor: pointer;
+        font-weight: 700;
+        font-size: 12px;
+        color: var(--muted);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: color 0.2s;
+        border-radius: 4px;
+        padding: 8px 10px;
+    }
+
+    .dimension-toggle-container:hover {
+        color: var(--accent);
+        background: rgba(255,255,255,0.05);
+    }
+
+    .dimension-toggle-icon {
+        transition: transform 0.3s;
+    }
+
+    .dimension-details-collapsed .dimension-toggle-icon {
+        transform: rotate(-90deg);
+    }
+
+    #dimension-scores {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.5s ease-in-out, opacity 0.5s;
+        opacity: 0;
+    }
+
+    .dimension-details-open #dimension-scores {
+        max-height: 2000px; /* Large enough to accommodate all scores */
+        opacity: 1;
+        margin-top: 10px;
+    }
+
+    .score-card { 
+        margin-bottom: 12px; 
+        padding-bottom: 8px; 
+        border-bottom: 1px dashed rgba(255,255,255,0.1); 
+    }
+    .score-head { 
+        display: flex; 
+        justify-content: space-between; 
+        font-size: 12px; 
+        color: var(--muted); 
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+    .score-val { 
+        font-weight: 700; 
+        font-size: 14px;
+        background: rgba(255,255,255,0.1);
+        padding: 0 6px;
+        border-radius: 4px;
+    }
+    .score-bar-bg { 
+        height: 6px; 
+        background: var(--ring); 
+        border-radius: 3px; 
+        overflow: hidden; 
+        margin-bottom: 5px;
+    }
+    .score-bar {
+        height: 100%;
+        transition: width 0.5s;
+        background-color: var(--muted) !important; /* Standardized to muted color */
+    }
+    .score-text {
+        font-size: 11px;
+        color: var(--text);
+        font-style: italic;
+        margin-left: 5px;
+    }
+    .tooltip-footer {
+        text-align: right; 
+        font-size: 12px; 
+        margin-top: 15px; 
+        padding-top: 10px; 
+        border-top: 1px solid var(--ring);
+    }
+
+    /* SCENE LABELS */
     .scene-label {
-        position: absolute; color: var(--muted); font-size: 10px; pointer-events: none;
-        transform: translate(-50%, -50%); text-shadow: 0 1px 2px black; white-space: nowrap;
+        position: absolute; color: var(--muted); font-size: 11px; pointer-events: none;
+        transform: translate(-50%, -50%); text-shadow: 0 1px 3px black; white-space: nowrap;
+        opacity: 0.9;
     }
-    .ctx-badge { 
-        font-size: 9px; padding: 1px 3px; border-radius: 2px; 
-        background: rgba(255,255,255,0.1); color: #ccc; margin-left: 4px;
-        vertical-align: middle;
+    .axis-title-label { 
+        color: var(--accent); font-weight: 700; font-size: 14px; 
+        background: rgba(15, 23, 42, 0.7); padding: 4px 10px;
+        border-radius: 6px; border: 1px solid var(--ring);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.3);
     }
-
-    /* D3 */
-    .axis text { fill: var(--muted); font-size: 10px; }
-    .axis path, .axis line { stroke: var(--ring); stroke-dasharray: 2,2; }
+    /* 3D Hover Label Style */
+    #hover-label {
+        background: var(--accent);
+        color: var(--bg);
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-weight: 700;
+        font-size: 11px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        pointer-events: none; 
+        transform: translate(-50%, -100%); 
+        white-space: nowrap;
+        z-index: 70;
+    }
+    /* D3 enhancements */
+    .axis text { fill: var(--muted); font-size: 11px; }
+    .axis path, .axis line { stroke: var(--ring); stroke-dasharray: 4,4; stroke-width: 1.5px; }
     
-    .score-item { margin-bottom: 6px; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 2px; }
-    .score-header { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); }
-    .score-desc { font-size: 11px; color: #fff; margin-top: 1px; }
 </style>
 </head>
 <body>
 
 <header>
-    <div>
-        <h1>PolyScope: OpenSAFELY Ontology</h1>
-        <div class="subtitle">Trusting People (System) vs. Trusting Code (Lifeworld)</div>
-    </div>
+    <h1>PolyScope: Narrative Ontology</h1>
+    <div class="header-right">V2.0 | N=100 (Static Data)</div>
 </header>
 
 <main id="mainLayout">
@@ -206,50 +409,90 @@
         <div id="d3-container" style="display:none;"></div>
         <div id="labels-container"></div>
         
-        <div id="tooltip" class="draggable-panel">
+        <!-- Detail Panel (Persistent) -->
+        <div id="tooltip" class="draggable-panel dimension-details-collapsed">
             <div class="panel-header">
-                <span id="tooltip-title" style="font-weight:600; font-size:13px; color:var(--accent);">DETAIL</span>
-                <span class="toggle-btn" style="cursor:pointer; padding:5px;" onclick="document.getElementById('tooltip').style.display='none'">✕</span>
+                <span id="tooltip-title" style="font-weight:700; font-size:13px; color:var(--accent);">DETAIL</span>
+                <span class="toggle-btn" style="cursor:pointer; padding:5px; color:var(--muted);" onclick="document.getElementById('tooltip').style.display='none'">✕</span>
             </div>
-            <div class="panel-content" id="tooltip-content"></div>
+            <div class="panel-content" id="tooltip-content">
+                <!-- Content will be injected here by showTooltip -->
+            </div>
+        </div>
+
+        <!-- NEW: NAO Editor Panel (Kept for viewing metrics, disabled for editing) -->
+        <div id="editor" class="draggable-panel">
+            <div class="panel-header">
+                <span id="editor-title" style="font-weight:700; font-size:13px; color:var(--accent);">EDIT NAO POINT (DISABLED)</span>
+                <span class="toggle-btn" style="cursor:pointer; padding:5px; color:var(--muted);" onclick="closeEditor()">✕</span>
+            </div>
+            <div class="panel-content">
+                <form id="naoForm">
+                    <input type="hidden" id="naoId">
+                    <label>Title</label>
+                    <input type="text" id="naoTitle" placeholder="Short name for the narrative/concept" required disabled>
+                    <label>Emoji</label>
+                    <input type="text" id="naoEmoji" placeholder="e.g., 🛡️ or 💰" maxlength="2" required disabled>
+                    <label>Perspective</label>
+                    <select id="naoPersp" required disabled></select>
+                    <label>Architecture Layer</label>
+                    <select id="naoLayer" required disabled></select>
+                    <label>Description</label>
+                    <textarea id="naoDesc" rows="3" placeholder="Explain the concept and its implications." required disabled></textarea>
+                    <label>Source/Reference URL (Optional)</label>
+                    <input type="text" id="naoRef" placeholder="e.g., https://example.com/source" disabled>
+
+                    <h3 style="margin-top: 20px; color:#fff; font-size:14px; border-bottom: 1px solid var(--ring); padding-bottom: 5px;">Dimensional Scores (0-100)</h3>
+                    <div id="metricInputs">
+                        <!-- Metric inputs generated by JS -->
+                    </div>
+
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-secondary" onclick="closeEditor()">Close</button>
+                        <!-- Both buttons disabled as persistence is not available -->
+                        <button type="button" class="btn btn-danger" id="deleteBtn" style="display:none;" disabled>Delete</button>
+                        <button type="submit" class="btn btn-primary" id="saveBtn" disabled>Save Changes</button>
+                    </div>
+                </form>
+            </div>
         </div>
         
         <div id="controls" class="draggable-panel">
             <div class="panel-header">
-                <span>CONTROLS</span>
-                <span class="toggle-btn" style="cursor:pointer; padding:5px;" onclick="document.getElementById('controls').classList.toggle('minimized')">_</span>
+                <span>VIEW CONTROLS</span>
+                <span class="toggle-btn" style="cursor:pointer; padding:5px; color:var(--muted);" onclick="document.getElementById('controls').classList.toggle('minimized')">_</span>
             </div>
             <div class="panel-content">
-                <label>View Mode</label>
+                <label>Mode</label>
                 <select id="modeSel"><option value="3D">3D Universe</option><option value="2D">2D Chart</option></select>
 
-                <div style="border-top:1px dashed #333; margin-top:10px; padding-top:5px;">
-                    <label style="color:#fff">Axis Mapping</label>
-                    <label>X Axis</label><select id="xSel"></select>
-                    <label>Y Axis</label><select id="ySel"></select>
-                    <div id="zGroup"><label>Z Axis</label><select id="zSel"></select></div>
+                <div style="border-top:1px solid var(--ring); margin-top:15px; padding-top:10px;">
+                    <label style="color:#fff">Geometric Mapping</label>
+                    <label>X Axis ($$x$$)</label><select id="xSel"></select>
+                    <label>Y Axis ($$y$$)</label><select id="ySel"></select>
+                    <div id="zGroup"><label>Z Axis ($$z$$)</label><select id="zSel"></select></div>
                 </div>
 
-                <div style="border-top:1px dashed #333; margin-top:10px; padding-top:5px;">
+                <div style="border-top:1px solid var(--ring); margin-top:15px; padding-top:10px;">
                     <label style="color:#fff">Visual Mapping</label>
-                    <label>Color</label><select id="colorSel"><option value="persp">Perspective</option><option value="layer">Arch Layer</option></select>
+                    <label>Color</label><select id="colorSel"><option value="persp">Perspective (Who)</option><option value="layer">Arch Layer (Where)</option></select>
                     <label>Size</label><select id="sizeSel"><option value="fixed">Fixed</option></select>
+                    <label>Halo/Glow</label><select id="haloSel"><option value="none">None</option><option value="persp">Perspective</option><option value="layer">Arch Layer</option></select>
                     <label>Opacity</label><select id="opacitySel"><option value="fixed">Fixed</option></select>
-                    <label>Halo</label><select id="haloSel"><option value="none">None</option><option value="persp">Perspective</option><option value="layer">Arch Layer</option></select>
                 </div>
                 
-                <div style="border-top:1px dashed #333; margin-top:10px; padding-top:5px; display:flex; flex-direction:column; gap:5px;">
-                    <label style="margin:0"><input type="checkbox" id="showLabels"> Show Text Labels</label>
-                    <label style="margin:0"><input type="checkbox" id="showEmojis"> Show Emojis</label>
-                    <label style="margin:0"><input type="checkbox" id="emojiOnly"> Emoji Only (No Point)</label>
+                <div style="border-top:1px solid var(--ring); margin-top:15px; padding-top:10px; display:flex; flex-direction:column; gap:8px;">
+                    <label style="margin:0"><input type="checkbox" id="showLabels"> Show Point Labels</label>
+                    <label style="margin:0"><input type="checkbox" id="showEmojis"> Show Emojis (Visual Anchor)</label>
+                    <label style="margin:0"><input type="checkbox" id="emojiOnly"> Emoji Only (No Sphere)</label>
                 </div>
             </div>
         </div>
 
         <div id="legend" class="draggable-panel">
             <div class="panel-header">
-                <span>DUAL FILTER</span>
-                <span class="toggle-btn" style="cursor:pointer; padding:5px;" onclick="document.getElementById('legend').classList.toggle('minimized')">_</span>
+                <span>DUAL FILTER (NAO Slice)</span>
+                <span class="toggle-btn" style="cursor:pointer; padding:5px; color:var(--muted);" onclick="document.getElementById('legend').classList.toggle('minimized')">_</span>
             </div>
             <div class="panel-content">
                 <div class="legend-item" onclick="toggleAll()">
@@ -258,12 +501,11 @@
                 </div>
                 
                 <div class="legend-section">
-                    <div class="legend-title">Perspective</div>
+                    <div class="legend-title" style="color:var(--accent);">Perspective (Who)</div>
                     <div id="perspList"></div>
                 </div>
                 
-                <div class="legend-section" style="border-bottom:none;">
-                    <div class="legend-title">Architecture Layer</div>
+                <div class="legend-section" style="border-bottom:none; margin-bottom: 0; padding-bottom: 0;">
                     <div id="layerList"></div>
                 </div>
             </div>
@@ -274,148 +516,375 @@
 
     <aside>
         <div style="padding:10px; border-bottom:1px solid var(--ring); font-size:11px; font-weight:600; color:var(--muted); background: rgba(15, 23, 42, 0.8); text-align:center;">
-            DATA NARRATIVES (N=35)
+            NARRATIVE AND ONTOLOGY POINTS (NAOs) (<span id="naoCount">N=100</span>)
+            <button class="btn btn-secondary" style="margin-top: 5px; width: 95%;" id="addNaoBtn" onclick="openEditor(null)">+ Add new NAO point</button>
         </div>
         <div class="scroller" id="list"></div>
     </aside>
 </main>
 
 <script>
-    // --- 1. ONTOLOGY ---
+    // --- 1. ONTOLOGY DEFINITION ---
+    // The Dimensional Matrix (Sense Check: Labels refined for clarity and alignment with white paper)
     const METRICS = [
-        { id: 'sec',  label: 'Security (Zero Trust)' },
-        { id: 'tran', label: 'Transparency (Logs)' },
-        { id: 'util', label: 'Utility (Speed)' },
+        { id: 'over', label: 'Overton (Acceptability)' },
         { id: 'eq',   label: 'Equitability (Access)' },
-        { id: 'priv', label: 'Privacy (De-ID)' },
-        { id: 'simp', label: 'Simplicity (UX)' },
-        { id: 'stew', label: 'Stewardship (Trust)' },
-        { id: 'cost', label: 'Cost Efficiency' }
+        { id: 'ev',   label: 'Evidence (Utility)' },
+        { id: 'cred', label: 'Credibility (Trust)' },
+        { id: 'simp', label: 'Simplicity (Friction)' },
+        { id: 'coh',  label: 'Coherence (System Fit)' },
+        { id: 'stew', label: 'Stewardship (Safety)' },
+        { id: 'clar', label: 'Clarity (Transparency)' },
+        { id: 'sal',  label: 'Salience (Mainstream Buzz)' },
+        { id: 'ess',  label: 'Essential (Core Concept)' },
+        { id: 'urg',  label: 'Urgency (Need)' }
     ];
 
     const EXPLAINERS = {
-        sec:  { high: "Data never leaves server; Code visits data.", low: "Data download allowed; CSVs via email." },
-        tran: { high: "All code & logs public on GitHub.", low: "Black box; 'Commercial Confidence'." },
-        util: { high: "Answers in minutes across 58m records.", low: "Months for approval and extraction." },
-        eq:   { high: "Open to anyone with code skills.", low: "Elite access only; Paywalls." },
-        priv: { high: "Impossible to re-identify (k-anonymity).", low: "Mosaic effect risk; Row-level access." },
-        simp: { high: "Standardized libraries (ehrQL).", low: "Custom SQL spaghetti; Cleaning data manually." },
-        stew: { high: "Goldacre Review compliant.", low: "Erodes patient consent." },
-        cost: { high: "Cheap compute; Efficient.", low: "Expensive consultants; Duplicate storage." }
+        over: { high: "Widely accepted; Standard practice or mainstream policy.", low: "Controversial; Radical; Taboo or fringe idea." },
+        eq:   { high: "Open to all; Open Source and wide accessibility.", low: "Exclusive; Gatekept; Elite or limited access." },
+        ev:   { high: "Proven results; Backed by hard data and published science.", low: "Theoretical; Unproven; Based on speculation or 'vibes'." },
+        cred: { high: "Academic/Government Backing; High institutional trust.", low: "Fringe / Community / Informal or non-official body." },
+        simp: { high: "Low friction; Simple APIs or standard user experience.", low: "High technical barrier; Requires custom code or complex setup." },
+        coh:  { high: "Logical; Zero Trust alignment; Fits cleanly within the system model.", low: "Contradictory; Leaky abstraction; Creates system complexity." },
+        stew: { high: "Protects patients long-term; High standards for data safety and ethics.", low: "Risks privacy; Short-term gain overrides long-term security." },
+        clar: { high: "Transparent; Public logs; Fully auditable by external parties.", low: "Black Box; Opaque; Proprietary or unverified process." },
+        sal:  { high: "Headline News; High general public interest or political traction.", low: "Niche topic; Internal debate or technical detail." },
+        ess:  { high: "Foundational to the project/domain; Core operational concept.", low: "Peripheral / Legacy; Can be removed without breaking the core mission." },
+        urg:  { high: "Immediate action required; Critical development or immediate threat.", low: "Long-term goal; Strategic planning or future research area." }
     };
 
+    // FIX 1: Use direct Hex Codes instead of CSS variables for Three.js compatibility
     const PERSPECTIVES = { 
-        Core: { name: "OpenSAFELY Core", color: '#2dd4bf' }, // Teal
-        Trad: { name: "Traditional Research", color: '#ef4444' }, // Red
-        Priv: { name: "Privacy Advocate", color: '#10b981' }, // Green
-        Tech: { name: "Tech / Ops", color: '#f59e0b' }, // Amber
-        Lat:  { name: "Latent / Cultural", color: '#8b5cf6' } // Purple
+        Core: { name: "OpenSAFELY Core", color: '#2dd4bf' }, 
+        Trad: { name: "Traditional Research", color: '#f43f5e' }, 
+        Priv: { name: "Privacy Advocate", color: '#10b981' }, 
+        Tech: { name: "Tech / Ops", color: '#f59e0b' }, 
+        Lat:  { name: "Latent / Cultural", color: '#8b5cf6' }, 
+        Pat:  { name: "Patient Perspective", color: '#f472b6' }, 
+        Pub:  { name: "Public Interest", color: '#3b82f6' } 
     };
 
     const LAYERS = {
-        Infra: { name: "Infrastructure", color: '#64748b' },
-        Gov:   { name: "Governance",     color: '#eab308' },
-        Code:  { name: "Code / Method",  color: '#3b82f6' },
-        Out:   { name: "Output Control", color: '#ec4899' },
-        Trust: { name: "Public Trust",   color: '#f43f5e' }
+        Infra: { name: "Infrastructure", color: '#64748b' }, 
+        Gov:   { name: "Governance",     color: '#eab308' }, 
+        Code:  { name: "Code / Method",  color: '#3b82f6' }, 
+        Out:   { name: "Output Control", color: '#ec4899' }, 
+        Trust: { name: "Public Trust",   color: '#9333ea' } 
     };
 
-    // --- 2. DATA (35 Points) ---
+    // --- 2. DATA (100 Narrative and Ontology Points - V1.1) ---
+    // Expanded data structure (synthetic generation for points 47-100)
     const RAW_DATA = [
-        // CORE PHILOSOPHY
-        { id: 1, persp: "Core", layer: "Infra", emoji: "🏰", title: "Code to Data", desc: "The fundamental shift: You send your question to the data, you don't download the data.", ref: "https://www.opensafely.org/about/", r: { sec: 100, tran: 90, util: 85, eq: 80, priv: 100, simp: 70, stew: 100, cost: 90 } },
-        { id: 2, persp: "Core", layer: "Code", emoji: "🏗️", title: "The Dummy Data", desc: "Researchers write code against fake synthetic data first. Ensures safety before touching real records.", ref: "https://docs.opensafely.org/dummy-data/", r: { sec: 100, tran: 80, util: 90, eq: 90, priv: 100, simp: 60, stew: 95, cost: 95 } },
-        { id: 3, persp: "Core", layer: "Out", emoji: "👮", title: "The Airlock", desc: "Automated and human review of outputs. Only aggregate stats leave the secure environment.", ref: "https://docs.opensafely.org/output-checking/", r: { sec: 95, tran: 100, util: 70, eq: 85, priv: 95, simp: 50, stew: 100, cost: 80 } },
-        { id: 4, persp: "Core", layer: "Gov", emoji: "📜", title: "Public Logs", desc: "Every line of code run against patient data is publicly logged on GitHub. Radical transparency.", ref: "https://jobs.opensafely.org/", r: { sec: 90, tran: 100, util: 80, eq: 95, priv: 80, simp: 60, stew: 100, cost: 90 } },
-        { id: 5, persp: "Core", layer: "Code", emoji: "📦", title: "Reproducible Pipelines", desc: "Modular, reusable code (Actions). Ending the crisis of non-reproducible science.", ref: "https://www.nature.com/articles/s41586-020-2521-4", r: { sec: 90, tran: 95, util: 95, eq: 70, priv: 90, simp: 40, stew: 95, cost: 95 } },
+        // CORE PHILOSOPHY (1-5, 26, 31)
+        { id: 1, persp: "Core", layer: "Infra", emoji: "🏰", title: "Code to Data", desc: "The fundamental shift: You send your question to the data, you don't download the data. High Security & Stewardship.", ref: "https://www.opensafely.org/about/", r: { over: 95, eq: 80, ev: 95, cred: 95, simp: 60, coh: 100, stew: 100, clar: 90, sal: 80, ess: 100, urg: 90 } },
+        { id: 2, persp: "Core", layer: "Code", emoji: "🏗️", title: "The Dummy Data", desc: "Coding against synthetic data allows rapid iteration without touching real records. High Utility & Safety.", ref: "https://docs.opensafely.org/dummy-data/", r: { over: 90, eq: 90, ev: 90, cred: 95, simp: 50, coh: 95, stew: 100, clar: 95, sal: 40, ess: 95, urg: 60 } },
+        { id: 3, persp: "Core", layer: "Out", emoji: "👮", title: "The Airlock", desc: "Automated review ensures only aggregate stats leave the secure environment. Essential but creates friction.", ref: "https://docs.opensafely.org/output-checking/", r: { over: 95, eq: 85, ev: 90, cred: 100, simp: 40, coh: 100, stew: 100, clar: 90, sal: 50, ess: 100, urg: 70 } },
+        { id: 4, persp: "Core", layer: "Gov", emoji: "📜", title: "Public Logs", desc: "Every line of code run against patient data is publicly logged on GitHub. Radical transparency builds immense Trust.", ref: "https://jobs.opensafely.org/", r: { over: 85, eq: 95, ev: 100, cred: 90, simp: 50, coh: 100, stew: 95, clar: 100, sal: 60, ess: 95, urg: 50 } },
+        { id: 5, persp: "Core", layer: "Code", emoji: "📦", title: "Reproducible Pipelines", desc: "Modular code ends the crisis of non-reproducible science. High Coherence & Evidence.", ref: "https://www.nature.com/articles/s41586-2020-2521-4", r: { over: 80, eq: 70, ev: 95, cred: 95, simp: 30, coh: 95, stew: 90, clar: 95, sal: 30, ess: 90, urg: 80 } },
+        { id: 26, persp: "Core", layer: "Gov", emoji: "🤝", title: "The '5 Safes' Upgrade", desc: "Moving from Safe People (weak) to Safe Settings/Outputs (strong).", ref: "https://blog.ons.gov.uk/2017/01/27/the-five-safes-data-privacy-at-ons/", r: { over: 95, eq: 85, ev: 90, cred: 95, simp: 60, coh: 100, stew: 100, clar: 90, sal: 70, ess: 100, urg: 80 } },
+        { id: 31, persp: "Core", layer: "Out", emoji: "📢", title: "Publication Bias", desc: "Forcing publication of null results via pre-registration. High Evidence.", ref: "https://www.cos.io/initiatives/prereg", r: { over: 70, eq: 95, ev: 100, cred: 80, simp: 30, coh: 90, stew: 100, clar: 100, sal: 20, ess: 90, urg: 50 } },
+
+        // TRADITIONAL (6-9, 27, 32)
+        { id: 6, persp: "Trad", layer: "Infra", emoji: "💾", title: "Data Download", desc: "The old way: Extracting CSVs to local laptops. High Simplicity, Zero Security (Low Stewardship).", ref: "https://www.gov.uk/service-manual/technology/securing-your-cloud-environment", r: { over: 20, eq: 80, ev: 60, cred: 40, simp: 100, coh: 10, stew: 5, clar: 20, sal: 70, ess: 0, urg: 10 } },
+        { id: 7, persp: "Trad", layer: "Gov", emoji: "🤝", title: "Trust-Based Access", desc: "Vetting the researcher ('Good Chap') rather than checking the code. Low Clarity & Security.", ref: "https://www.goldacrereview.org/", r: { over: 50, eq: 30, ev: 40, cred: 60, simp: 60, coh: 30, stew: 20, clar: 30, sal: 60, ess: 10, urg: 20 } },
+        { id: 8, persp: "Trad", layer: "Code", emoji: "🍝", title: "Spaghetti SQL", desc: "Ad-hoc queries that cannot be audited or reused. Low Clarity & Coherence.", ref: "https://analysisfunction.civilservice.gov.uk/policy-store/reproducible-analytical-pipelines-strategy/", r: { over: 30, eq: 30, ev: 40, cred: 30, simp: 50, coh: 20, stew: 30, clar: 10, sal: 20, ess: 0, urg: 30 } },
+        { id: 9, persp: "Trad", layer: "Out", emoji: "🙈", title: "Small Number Suppression", desc: "Hiding cells < 5. A weak, outdated privacy measure vulnerable to differencing.", ref: "https://style.ons.gov.uk/house-style/confidentiality-and-rounding/", r: { over: 60, eq: 60, ev: 60, cred: 70, simp: 90, coh: 50, stew: 40, clar: 50, sal: 40, ess: 20, urg: 40 } },
+        { id: 27, persp: "Trad", layer: "Gov", emoji: "🗄️", title: "The Data Controller", desc: "GP practices legally own the data. Tension between local/national.", ref: "https://digital.nhs.uk/services/general-practice-data-for-planning-and-research/transparency-notice", r: { over: 80, eq: 40, ev: 30, cred: 70, simp: 10, coh: 40, stew: 60, clar: 40, sal: 60, ess: 30, urg: 50 } },
+        { id: 32, persp: "Trad", layer: "Code", emoji: "🙅", title: "Excel Dependency", desc: "Researchers who just want a spreadsheet. High Simplicity, Low Stewardship.", ref: "https://www.bbc.co.uk/news/technology-54423988", r: { over: 60, eq: 90, ev: 10, cred: 10, simp: 100, coh: 10, stew: 10, clar: 10, sal: 50, ess: 0, urg: 60 } },
+
+        // PRIVACY ADVOCATES (10-13, 29, 35)
+        { id: 10, persp: "Priv", layer: "Trust", emoji: "🚫", title: "The Opt-Out", desc: "The ultimate brake. If trust is lost, patients withdraw data. High Agency, Low Utility for research.", ref: "https://www.nhs.uk/your-nhs-data-matters/", r: { over: 80, eq: 40, ev: 10, cred: 90, simp: 80, coh: 60, stew: 50, clar: 60, sal: 90, ess: 60, urg: 85 } },
+        { id: 11, persp: "Priv", layer: "Gov", emoji: "🧐", title: "MedConfidential Test", desc: "Can you see who did what to your data? The audit trail requirement. High Clarity.", ref: "https://medconfidential.org/", r: { over: 90, eq: 80, ev: 85, cred: 90, simp: 40, coh: 90, stew: 95, clar: 100, sal: 50, ess: 90, urg: 75 } },
+        { id: 12, persp: "Priv", layer: "Infra", emoji: "🇺🇸", title: "Sovereign Cloud", desc: "Fear of US tech giants (Palantir/AWS) hosting NHS data. Low Trust.", ref: "https://www.ft.com/content/3c932c02-7a8e-4a6f-b258-000c00000000", r: { over: 60, eq: 50, ev: 50, cred: 70, simp: 40, coh: 70, stew: 90, clar: 60, sal: 85, ess: 70, urg: 95 } },
+        { id: 13, persp: "Priv", layer: "Out", emoji: "🧩", title: "Mosaic Effect", desc: "Re-identifying patients by combining multiple safe outputs. A hidden risk.", ref: "https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/data-protection-and-the-eu/data-sharing-a-code-of-practice/anonymisation-and-pseudonymisation/", r: { over: 70, eq: 30, ev: 90, cred: 80, simp: 20, coh: 40, stew: 20, clar: 30, sal: 30, ess: 80, urg: 65 } },
+        { id: 29, persp: "Priv", layer: "Trust", emoji: "👁️", title: "Surveillance Capitalism", desc: "Fear that health data trains models for insurance/ads. Low Trust.", ref: "https://en.wikipedia.org/wiki/Surveillance_capitalism", r: { over: 40, eq: 10, ev: 90, cred: 10, simp: 60, coh: 20, stew: 5, clar: 20, sal: 95, ess: 0, urg: 100 } },
+        { id: 35, persp: "Priv", layer: "Gov", emoji: "⚖️", title: "Legal Basis (COPI)", desc: "Emergency powers (Covid) vs BAU. The legal shaky ground.", ref: "https://digital.nhs.uk/coronavirus/coronavirus-covid-19-response-information-governance-hub/control-of-patient-information-copi-notice", r: { over: 60, eq: 80, ev: 80, cred: 70, simp: 50, coh: 40, stew: 60, clar: 80, sal: 60, ess: 70, urg: 100 } },
         
-        // TRADITIONAL (Status Quo)
-        { id: 6, persp: "Trad", layer: "Infra", emoji: "💾", title: "Data Download", desc: "The old way: Extracting CSVs to local laptops. High Simplicity, Zero Security.", ref: "https://www.gov.uk/service-manual/technology/securing-your-cloud-environment", r: { sec: 5, tran: 10, util: 60, eq: 80, priv: 10, simp: 100, stew: 10, cost: 40 } },
-        { id: 7, persp: "Trad", layer: "Gov", emoji: "🤝", title: "Trust-Based Access", desc: "Vetting the researcher ('Good Chap' theory) rather than checking the code.", r: { sec: 20, tran: 30, util: 50, eq: 20, priv: 30, simp: 60, stew: 20, cost: 30 } },
-        { id: 8, persp: "Trad", layer: "Code", emoji: "🍝", title: "Spaghetti SQL", desc: "Ad-hoc, undocumented queries that cannot be audited or reused.", r: { sec: 30, tran: 10, util: 40, eq: 30, priv: 40, simp: 50, stew: 20, cost: 10 } },
-        { id: 9, persp: "Trad", layer: "Out", emoji: "🙈", title: "Small Number Suppression", desc: "Basic rule: Don't publish cells < 5. Vulnerable to differencing attacks.", r: { sec: 40, tran: 50, util: 60, eq: 60, priv: 50, simp: 90, stew: 50, cost: 60 } },
+        // TECH / OPS (14-17, 28, 34)
+        { id: 14, persp: "Tech", layer: "Infra", emoji: "🐳", title: "Dockerized Analysis", desc: "Portable containers ensure code runs consistently everywhere. High Utility.", ref: "https://www.docker.com/", r: { over: 90, eq: 60, ev: 90, cred: 95, simp: 30, coh: 95, stew: 90, clar: 90, sal: 20, ess: 85, urg: 50 } },
+        { id: 15, persp: "Tech", layer: "Code", emoji: "📚", title: "ehrQL", desc: "A specialized language for health data. High Clarity for audit, Low Simplicity for newbies.", ref: "https://docs.opensafely.org/ehrql/", r: { over: 85, eq: 50, ev: 95, cred: 90, simp: 60, coh: 90, stew: 90, clar: 85, sal: 10, ess: 95, urg: 40 } },
+        { id: 16, persp: "Tech", layer: "Gov", emoji: "🔄", title: "Continuous Integration", desc: "Automated testing prevents bugs. High Evidence & Stewardship.", ref: "https://github.com/opensafely", r: { over: 85, eq: 40, ev: 90, cred: 90, simp: 20, coh: 90, stew: 90, clar: 95, sal: 15, ess: 80, urg: 45 } },
+        { id: 17, persp: "Tech", layer: "Infra", emoji: "☁️", title: "Federated Backend", desc: "Running code across multiple vendors without merging DBs. High Security.", ref: "https://www.opensafely.org/federation/", r: { over: 95, eq: 80, ev: 85, cred: 100, simp: 10, coh: 100, stew: 95, clar: 80, sal: 50, ess: 100, urg: 80 } },
+        { id: 28, persp: "Tech", layer: "Out", emoji: "📊", title: "Automated Disclosure", desc: "Algorithms checking for small numbers. Removing human bottleneck.", ref: "https://docs.opensafely.org/output-checking/", r: { over: 85, eq: 90, ev: 95, cred: 90, simp: 80, coh: 95, stew: 90, clar: 95, sal: 30, ess: 90, urg: 85 } },
+        { id: 34, persp: "Tech", layer: "Infra", emoji: "⚡", title: "Just-in-Time Access", desc: "Permissions granted only for the millisecond the code runs. High Security.", ref: "https://www.microsoft.com/en-us/security/business/zero-trust", r: { over: 95, eq: 70, ev: 95, cred: 100, simp: 20, coh: 100, stew: 95, clar: 95, sal: 30, ess: 95, urg: 90 } },
 
-        // PRIVACY ADVOCATES
-        { id: 10, persp: "Priv", layer: "Trust", emoji: "🚫", title: "The Opt-Out", desc: "The ultimate brake. If trust is lost, patients withdraw data.", ref: "https://www.nhs.uk/your-nhs-data-matters/", r: { sec: 60, tran: 80, util: 10, eq: 40, priv: 100, simp: 80, stew: 50, cost: 20 } },
-        { id: 11, persp: "Priv", layer: "Gov", emoji: "🧐", title: "MedConfidential Test", desc: "Can you see who did what to your data? The audit trail requirement.", ref: "https://medconfidential.org/", r: { sec: 90, tran: 100, util: 50, eq: 80, priv: 90, simp: 40, stew: 95, cost: 60 } },
-        { id: 12, persp: "Priv", layer: "Infra", emoji: "🇺🇸", title: "Sovereign Cloud", desc: "Fear of US tech giants (Palantir/AWS) hosting NHS data.", r: { sec: 70, tran: 60, util: 50, eq: 50, priv: 80, simp: 40, stew: 90, cost: 30 } },
-        { id: 13, persp: "Priv", layer: "Out", emoji: "🧩", title: "Mosaic Effect", desc: "Re-identifying patients by combining multiple safe outputs.", r: { sec: 20, tran: 30, util: 90, eq: 30, priv: 10, simp: 20, stew: 10, cost: 10 } },
+        // LATENT / CULTURAL (18-22, 30, 33)
+        { id: 18, persp: "Lat", layer: "Trust", emoji: "🐦", title: "Ben Goldacre's Feed", desc: "The charismatic founder effect. Drives Overton but polarizes opinion.", ref: "https://twitter.com/bengoldacre", r: { over: 60, eq: 40, ev: 60, cred: 50, simp: 80, coh: 50, stew: 80, clar: 100, sal: 90, ess: 40, urg: 20 } },
+        { id: 19, persp: "Lat", layer: "Code", emoji: "🐍", title: "Python Superiority", desc: "Friction with traditional medical stats folks who prefer Stata/R.", ref: "https://stackoverflow.blog/2020/08/17/why-python-is-eating-data-science/", r: { over: 70, eq: 30, ev: 90, cred: 70, simp: 20, coh: 80, stew: 60, clar: 80, sal: 40, ess: 50, urg: 30 } },
+        { id: 20, persp: "Lat", layer: "Gov", emoji: "⏳", title: "The 'Job Server' Queue", desc: "The frustration of non-interactive analysis. Waiting for the 'Batch' to run.", ref: "https://docs.opensafely.org/jobs/", r: { over: 40, eq: 80, ev: 20, cred: 100, simp: 10, coh: 90, stew: 90, clar: 90, sal: 20, ess: 80, urg: 40 } },
+        { id: 21, persp: "Lat", layer: "Infra", emoji: "🧗", title: "Git Literacy Barrier", desc: "The technical bar excludes many older researchers. Low Equitability.", ref: "https://the-turing-way.netlify.app/reproducible-research/vcs/vcs-git.html", r: { over: 50, eq: 10, ev: 60, cred: 90, simp: 5, coh: 90, stew: 60, clar: 90, sal: 30, ess: 60, urg: 70 } },
+        { id: 22, persp: "Lat", layer: "Trust", emoji: "🏰", title: "The Walled Garden", desc: "Critique: OpenSAFELY is open source but closed governance? 'Who decides?'", ref: "https://github.com/opensafely/governance", r: { over: 60, eq: 30, ev: 70, cred: 90, simp: 40, coh: 70, stew: 70, clar: 80, sal: 40, ess: 70, urg: 60 } },
+        { id: 30, persp: "Lat", layer: "Code", emoji: "🔧", title: "Study Definition", desc: "The core python file defining the cohort. The heart of the machine.", ref: "https://docs.opensafely.org/study-def/", r: { over: 90, eq: 60, ev: 100, cred: 90, simp: 50, coh: 95, stew: 95, clar: 100, sal: 10, ess: 100, urg: 30 } },
+        { id: 33, persp: "Lat", layer: "Trust", emoji: "🏥", title: "NHS Brand Halo", desc: "Trusting the NHS logo but not the tech partners underneath.", ref: "https://www.england.nhs.uk/nhs-identity/", r: { over: 85, eq: 80, ev: 40, cred: 50, simp: 90, coh: 60, stew: 70, clar: 40, sal: 80, ess: 40, urg: 50 } },
 
-        // TECH / OPS
-        { id: 14, persp: "Tech", layer: "Infra", emoji: "🐳", title: "Dockerized Analysis", desc: "Portable, isolated containers. Runs the same on dummy data as real data.", r: { sec: 95, tran: 90, util: 90, eq: 60, priv: 90, simp: 30, stew: 90, cost: 80 } },
-        { id: 15, persp: "Tech", layer: "Code", emoji: "📚", title: "ehrQL", desc: "Electronic Health Record Query Language. Specialized syntax for health data.", ref: "https://docs.opensafely.org/ehrql/", r: { sec: 90, tran: 85, util: 95, eq: 50, priv: 90, simp: 60, stew: 90, cost: 85 } },
-        { id: 16, persp: "Tech", layer: "Gov", emoji: "🔄", title: "Continuous Integration", desc: "Automated testing of research code. Bringing DevOps to Epidemiology.", r: { sec: 90, tran: 95, util: 90, eq: 40, priv: 85, simp: 20, stew: 90, cost: 80 } },
-        { id: 17, persp: "Tech", layer: "Infra", emoji: "☁️", title: "Federated Backend", desc: "Running across multiple vendors (TPP, EMIS) without merging databases.", r: { sec: 100, tran: 80, util: 85, eq: 80, priv: 100, simp: 10, stew: 95, cost: 70 } },
-
-        // LATENT / CULTURAL
-        { id: 18, persp: "Lat", layer: "Trust", emoji: "🐦", title: "Ben Goldacre's Feed", desc: "The charismatic founder effect. High Influence, perceived arrogance?", r: { sec: 50, tran: 100, util: 60, eq: 40, priv: 60, simp: 80, stew: 80, cost: 50 } },
-        { id: 19, persp: "Lat", layer: "Code", emoji: "🐍", title: "Python Superiority", desc: "Friction with traditional medical stats folks who prefer Stata/R.", r: { sec: 70, tran: 80, util: 90, eq: 30, priv: 70, simp: 20, stew: 60, cost: 60 } },
-        { id: 20, persp: "Lat", layer: "Gov", emoji: "⏳", title: "The 'Job Server' Queue", desc: "The frustration of non-interactive analysis. Waiting for the 'Batch' to run.", r: { sec: 100, tran: 90, util: 20, eq: 80, priv: 100, simp: 10, stew: 90, cost: 90 } },
-        { id: 21, persp: "Lat", layer: "Infra", emoji: "🧗", title: "Git Literacy Barrier", desc: "The high technical bar excludes many older clinicians/researchers.", r: { sec: 90, tran: 90, util: 60, eq: 10, priv: 90, simp: 5, stew: 60, cost: 60 } },
-        { id: 22, persp: "Lat", layer: "Trust", emoji: "🏰", title: "The Walled Garden", desc: "Critique: OpenSAFELY is open source but closed governance? 'Who decides?'", r: { sec: 90, tran: 80, util: 70, eq: 30, priv: 90, simp: 40, stew: 70, cost: 60 } },
-        { id: 23, persp: "Lat", layer: "Out", emoji: "👻", title: "P-Hacking Prevention", desc: "Pre-registration of code stops researchers 'massaging' results. Unpopular but honest.", r: { sec: 90, tran: 100, util: 40, eq: 90, priv: 80, simp: 20, stew: 100, cost: 90 } },
-        { id: 24, persp: "Lat", layer: "Gov", emoji: "📑", title: "Information Governance (IG)", desc: "The bureaucracy that slows everything down. Necessary evil or obstruction?", r: { sec: 80, tran: 60, util: 10, eq: 50, priv: 90, simp: 5, stew: 70, cost: 10 } },
-        { id: 25, persp: "Lat", layer: "Infra", emoji: "🕸️", title: "Vendor Lock-in Fears", desc: "Is OpenSAFELY becoming the only game in town? Monopoly risk.", r: { sec: 60, tran: 70, util: 80, eq: 40, priv: 70, simp: 50, stew: 40, cost: 50 } },
+        // PATIENT (36-38, 41, 43, 45)
+        { id: 36, persp: "Pat", layer: "Trust", emoji: "🩺", title: "My Data, My Cure", desc: "The hope that sharing data will lead to personalized treatment.", ref: "https://usemydata.org/", r: { over: 85, eq: 80, ev: 70, cred: 60, simp: 90, coh: 80, stew: 85, clar: 70, sal: 70, ess: 60, urg: 60 } },
+        { id: 37, persp: "Pat", layer: "Gov", emoji: "🥱", title: "Consent Fatigue", desc: "Being asked too often leads to automatic clicking without understanding.", ref: "https://ico.org.uk/for-organisations/guide-to-data-protection/guide-to-the-general-data-protection-regulation-gdpr/lawful-basis-for-processing/consent/", r: { over: 90, eq: 90, ev: 50, cred: 40, simp: 20, coh: 30, stew: 40, clar: 50, sal: 60, ess: 40, urg: 50 } },
+        { id: 38, persp: "Pat", layer: "Trust", emoji: "📜", title: "Social Contract", desc: "I give data to the NHS, not to Big Pharma. The implicit deal.", ref: "https://www.ada.ac.uk/", r: { over: 95, eq: 70, ev: 60, cred: 50, simp: 70, coh: 85, stew: 90, clar: 60, sal: 90, ess: 80, urg: 80 } },
+        { id: 41, persp: "Pat", layer: "Trust", emoji: "🧩", title: "Rare Disease Hope", desc: "Small cohorts need big data to find patterns. Willing to share everything.", ref: "https://www.raredisease.org.uk/", r: { over: 90, eq: 20, ev: 70, cred: 60, simp: 80, coh: 90, stew: 90, clar: 70, sal: 50, ess: 60, urg: 90 } },
+        { id: 43, persp: "Pat", layer: "Code", emoji: "📱", title: "Patient Notification", desc: "The capability to tell patients exactly when and why their data was used.", ref: "https://www.england.nhs.uk/contact-us/privacy-notice/how-we-use-your-information/our-partners/", r: { over: 95, eq: 95, ev: 60, cred: 80, simp: 95, coh: 70, stew: 80, clar: 60, sal: 95, ess: 50, urg: 60 } },
+        { id: 45, persp: "Pat", layer: "Out", emoji: "🧬", title: "Genetic Privacy", desc: "Fear that data could affect insurance premiums for children.", ref: "https://www.abi.org.uk/data-and-resources/tools-and-resources/genetics/code-on-genetic-testing-and-insurance/", r: { over: 50, eq: 30, ev: 60, cred: 50, simp: 40, coh: 40, stew: 60, clar: 60, sal: 70, ess: 40, urg: 80 } },
         
-        // Expanded Data
-        { id: 26, persp: "Core", layer: "Gov", emoji: "🤝", title: "The '5 Safes' Upgrade", desc: "Moving from Safe People (weak) to Safe Settings/Outputs (strong).", ref: "https://blog.ons.gov.uk/2017/01/27/the-five-safes-data-privacy-at-ons/", r: { sec: 95, tran: 90, util: 85, eq: 85, priv: 95, simp: 60, stew: 100, cost: 90 } },
-        { id: 27, persp: "Trad", layer: "Gov", emoji: "🗄️", title: "The Data Controller", desc: "GP practices legally own the data. Tension between local and national.", r: { sec: 70, tran: 40, util: 30, eq: 40, priv: 80, simp: 10, stew: 60, cost: 20 } },
-        { id: 28, persp: "Tech", layer: "Out", emoji: "📊", title: "Automated Disclosure", desc: "Algorithms checking for small numbers. Removing human bottleneck.", r: { sec: 90, tran: 95, util: 100, eq: 90, priv: 90, simp: 80, stew: 90, cost: 95 } },
-        { id: 29, persp: "Priv", layer: "Trust", emoji: "👁️", title: "Surveillance Capitalism", desc: "Fear that health data trains models for insurance/ads.", r: { sec: 10, tran: 20, util: 90, eq: 10, priv: 5, simp: 60, stew: 5, cost: 80 } },
-        { id: 30, persp: "Lat", layer: "Code", emoji: "🔧", title: "Study Definition", desc: "The core python file defining the cohort. The heart of the machine.", r: { sec: 90, tran: 100, util: 95, eq: 60, priv: 95, simp: 50, stew: 95, cost: 90 } },
-        { id: 31, persp: "Core", layer: "Out", emoji: "📢", title: "Publication Bias", desc: "Forcing publication of null results because the code was pre-registered.", r: { sec: 80, tran: 100, util: 50, eq: 95, priv: 80, simp: 30, stew: 100, cost: 70 } },
-        { id: 32, persp: "Trad", layer: "Code", emoji: "🙅", title: "Excel Dependency", desc: "Researchers who just want a spreadsheet. The resistance.", r: { sec: 10, tran: 10, util: 60, eq: 90, priv: 10, simp: 100, stew: 10, cost: 20 } },
-        { id: 33, persp: "Lat", layer: "Trust", emoji: "🏥", title: "NHS Brand Halo", desc: "Trusting the NHS logo but not the tech partners underneath.", r: { sec: 50, tran: 40, util: 60, eq: 80, priv: 60, simp: 90, stew: 70, cost: 60 } },
-        { id: 34, persp: "Tech", layer: "Infra", emoji: "⚡", title: "Just-in-Time Access", desc: "Permissions granted only for the millisecond the code runs.", r: { sec: 100, tran: 95, util: 90, eq: 70, priv: 100, simp: 20, stew: 95, cost: 85 } },
-        { id: 35, persp: "Priv", layer: "Gov", emoji: "⚖️", title: "Legal Basis (COPI)", desc: "Emergency powers (Covid) vs BAU. The legal shaky ground.", r: { sec: 70, tran: 80, util: 90, eq: 80, priv: 60, simp: 50, stew: 60, cost: 80 } }
+        // PUBLIC (39, 40, 42, 44, 46)
+        { id: 39, persp: "Pub", layer: "Out", emoji: "📰", title: "Tabloid Scare", desc: "Headlines about 'Selling off GP Records' causing mass opt-outs.", ref: "https://www.dailymail.co.uk/news/article-9635773/Millions-NHS-patients-data-sold-private-firms.html", r: { over: 40, eq: 40, ev: 90, cred: 20, simp: 90, coh: 10, stew: 10, clar: 90, sal: 100, ess: 0, urg: 100 } },
+        { id: 40, persp: "Pub", layer: "Infra", emoji: "🦠", title: "Pandemic Legacy", desc: "We accepted surveillance to stop the virus. Will it roll back?", ref: "https://www.gov.uk/government/publications/data-saves-lives-reshaping-health-and-social-care-with-data", r: { over: 70, eq: 60, ev: 80, cred: 70, simp: 60, coh: 70, stew: 70, clar: 80, sal: 90, ess: 50, urg: 40 } },
+        { id: 42, persp: "Pub", layer: "Gov", emoji: "🗳️", title: "Data Democracy", desc: "Citizens' Juries deciding who gets access to what.", ref: "https://www.connectedhealthcities.org/", r: { over: 80, eq: 90, ev: 90, cred: 80, simp: 30, coh: 85, stew: 95, clar: 90, sal: 40, ess: 85, urg: 70 } },
+        { id: 44, persp: "Pub", layer: "Infra", emoji: "🏴‍☠️", title: "Ransomware Fear", desc: "WannaCry memories. Is a centralized SDE a honeypot?", ref: "https://www.nao.org.uk/report/investigation-wannacry-cyber-attack-and-the-nhs/", r: { over: 30, eq: 50, ev: 40, cred: 30, simp: 50, coh: 20, stew: 10, clar: 40, sal: 90, ess: 20, urg: 100 } },
+        { id: 46, persp: "Pub", layer: "Trust", emoji: "🤝", title: "Reciprocity", desc: "If Pharma profits from my data, the NHS should get a discount.", ref: "https://www.ucl.ac.uk/innovation-and-enterprise/news/2020/jan/nhs-data-value", r: { over: 90, eq: 90, ev: 70, cred: 60, simp: 50, coh: 80, stew: 85, clar: 70, sal: 80, ess: 70, urg: 90 } },
+        
+        // --- Further Synthetic Expansion (47 - 100) ---
+        // Core (Focus on Standards & Equity)
+        { id: 47, persp: "Core", layer: "Infra", emoji: "🌐", title: "Decentralized SDEs", desc: "Connecting secure data environments (SDEs) globally for mega-analysis while retaining local control.", ref: "#", r: { over: 85, eq: 75, ev: 90, cred: 98, simp: 40, coh: 90, stew: 98, clar: 95, sal: 50, ess: 95, urg: 85 } },
+        { id: 48, persp: "Core", layer: "Code", emoji: "🔗", title: "Linked Open Metadata", desc: "Standardizing terminology and structure across all datasets (ICD-10, SNOMED-CT).", ref: "#", r: { over: 90, eq: 95, ev: 85, cred: 90, simp: 50, coh: 100, stew: 90, clar: 95, sal: 30, ess: 98, urg: 70 } },
+        { id: 49, persp: "Core", layer: "Gov", emoji: "💰", title: "Fair Pricing Model", desc: "Ensuring commercial users pay fair market value, subsidizing academic/public research.", ref: "#", r: { over: 70, eq: 95, ev: 80, cred: 90, simp: 45, coh: 85, stew: 90, clar: 85, sal: 60, ess: 85, urg: 65 } },
+        { id: 50, persp: "Core", layer: "Trust", emoji: "🧠", title: "Open Source ML Models", desc: "Requiring all algorithms trained on OS data to be public and auditable.", ref: "#", r: { over: 75, eq: 85, ev: 95, cred: 95, simp: 35, coh: 90, stew: 95, clar: 100, sal: 40, ess: 90, urg: 75 } },
+        
+        // New Traditional points (High Simplicity, Low Clarity/Stewardship)
+        { id: 51, persp: "Trad", layer: "Infra", emoji: "📠", title: "Paper Records Legacy", desc: "The inertia of physical records slows down comprehensive data linkage.", ref: "#", r: { over: 95, eq: 10, ev: 5, cred: 50, simp: 5, coh: 5, stew: 15, clar: 10, sal: 50, ess: 0, urg: 95 } },
+        { id: 52, persp: "Trad", layer: "Gov", emoji: "🧑‍💻", title: "Single Researcher PoC", desc: "The traditional model where a single, trusted PI holds the key.", ref: "#", r: { over: 70, eq: 20, ev: 50, cred: 70, simp: 80, coh: 20, stew: 30, clar: 30, sal: 40, ess: 10, urg: 15 } },
+        { id: 53, persp: "Trad", layer: "Out", emoji: "🔄", title: "Data Refresh Lag", desc: "Using outdated or semi-live datasets due to complex extraction processes.", ref: "#", r: { over: 50, eq: 50, ev: 30, cred: 60, simp: 70, coh: 30, stew: 40, clar: 50, sal: 30, ess: 25, urg: 75 } },
+        
+        // New Privacy Advocate points (High Urgency, High Stewardship/Credibility, Low Simplicity/Equitability)
+        { id: 54, persp: "Priv", layer: "Trust", emoji: "🤖", title: "AI Decision Audit", desc: "Demand for transparent review mechanisms for AI systems trained on NHS data.", ref: "#", r: { over: 70, eq: 50, ev: 90, cred: 95, simp: 20, coh: 70, stew: 100, clar: 80, sal: 80, ess: 70, urg: 90 } },
+        { id: 55, persp: "Priv", layer: "Gov", emoji: "📜", title: "Ethical Board Power", desc: "Argument that ethical review bodies need stronger veto power over commercial use.", ref: "#", r: { over: 95, eq: 60, ev: 70, cred: 100, simp: 30, coh: 80, stew: 95, clar: 90, sal: 50, ess: 85, urg: 80 } },
+        { id: 56, persp: "Priv", layer: "Code", emoji: "🔒", title: "Differential Privacy", desc: "Push for mathematical privacy guarantees rather than just procedural security.", ref: "#", r: { over: 50, eq: 40, ev: 80, cred: 80, simp: 10, coh: 90, stew: 100, clar: 60, sal: 40, ess: 90, urg: 70 } },
+        
+        // New Tech/Ops points (High Utility, High Coherence, Low Simplicity)
+        { id: 57, persp: "Tech", layer: "Infra", emoji: "📡", title: "Real-time Telemetry", desc: "The capability for instantaneous monitoring of all SDE access and resource usage.", ref: "#", r: { over: 95, eq: 60, ev: 95, cred: 90, simp: 20, coh: 100, stew: 90, clar: 100, sal: 20, ess: 90, urg: 60 } },
+        { id: 58, persp: "Tech", layer: "Code", emoji: "🛠️", title: "Unified API Gateway", desc: "A single point of access for researchers, simplifying data requests across federated backends.", ref: "#", r: { over: 90, eq: 85, ev: 90, cred: 95, simp: 70, coh: 95, stew: 85, clar: 85, sal: 40, ess: 100, urg: 50 } },
+        { id: 59, persp: "Tech", layer: "Out", emoji: "🧪", title: "Secure Testing Environment", desc: "A high-fidelity sandbox replicating live data characteristics without exposure.", ref: "#", r: { over: 85, eq: 70, ev: 95, cred: 90, simp: 50, coh: 90, stew: 95, clar: 85, sal: 30, ess: 90, urg: 65 } },
+
+        // New Latent/Cultural points (High Clarity/Salience, often low Simplicity/Coherence)
+        { id: 60, persp: "Lat", layer: "Trust", emoji: "🍿", title: "Headline Fatigue", desc: "The public tunes out complex data governance debates after repeated crises.", ref: "#", r: { over: 40, eq: 70, ev: 10, cred: 30, simp: 90, coh: 20, stew: 40, clar: 50, sal: 95, ess: 10, urg: 30 } },
+        { id: 61, persp: "Lat", layer: "Gov", emoji: "🤫", title: "The 'Just-Say-No' Culture", desc: "Data gatekeepers defaulting to denial due to fear of public/tabloid backlash.", ref: "#", r: { over: 50, eq: 30, ev: 10, cred: 70, simp: 95, coh: 20, stew: 80, clar: 20, sal: 60, ess: 20, urg: 40 } },
+        { id: 62, persp: "Lat", layer: "Infra", emoji: "🧱", title: "Vendor Lock-in Risk", desc: "Dependence on a single commercial cloud provider makes exit difficult and expensive.", ref: "#", r: { over: 70, eq: 20, ev: 60, cred: 40, simp: 25, coh: 50, stew: 30, clar: 70, sal: 75, ess: 50, urg: 80 } },
+
+        // New Patient/Public points
+        { id: 63, persp: "Pat", layer: "Gov", emoji: "📣", title: "Patient Data Literacy", desc: "The need for accessible, clear information so patients can make informed choices.", ref: "#", r: { over: 80, eq: 95, ev: 60, cred: 70, simp: 70, coh: 70, stew: 80, clar: 100, sal: 70, ess: 60, urg: 50 } },
+        { id: 64, persp: "Pub", layer: "Trust", emoji: "💸", title: "NHS Commercialization", desc: "Public skepticism over private sector profit motive using NHS data.", ref: "#", r: { over: 50, eq: 30, ev: 80, cred: 20, simp: 60, coh: 40, stew: 15, clar: 80, sal: 95, ess: 10, urg: 90 } },
+        
+        // --- Further Synthetic Expansion (65 - 100) ---
+        // Core (Focus on Standards & Equity)
+        { id: 65, persp: "Core", layer: "Code", emoji: "📐", title: "Standardized Cohort Tools", desc: "Shared, validated code lists for defining patient populations (e.g., specific disease criteria).", ref: "#", r: { over: 95, eq: 90, ev: 98, cred: 95, simp: 70, coh: 100, stew: 90, clar: 90, sal: 20, ess: 100, urg: 60 } },
+        { id: 66, persp: "Core", layer: "Gov", emoji: "🧮", title: "Algorithmic Fairness Review", desc: "Pre-computation analysis to ensure models don't embed existing health inequalities.", ref: "#", r: { over: 80, eq: 98, ev: 90, cred: 95, simp: 40, coh: 90, stew: 95, clar: 90, sal: 60, ess: 85, urg: 85 } },
+        { id: 67, persp: "Core", layer: "Infra", emoji: "🗜️", title: "Homomorphic Encryption Use", desc: "Using advanced cryptography to analyze data without ever decrypting it (long-term goal).", ref: "#", r: { over: 40, eq: 50, ev: 50, cred: 80, simp: 5, coh: 100, stew: 100, clar: 70, sal: 10, ess: 95, urg: 50 } },
+        { id: 68, persp: "Core", layer: "Out", emoji: "📈", title: "Output Utility Maximization", desc: "Balancing privacy protection with the research value of the released data.", ref: "#", r: { over: 85, eq: 75, ev: 95, cred: 90, simp: 50, coh: 90, stew: 90, clar: 80, sal: 40, ess: 95, urg: 70 } },
+        
+        // Traditional (Focus on Legacy & Resistance to Change)
+        { id: 69, persp: "Trad", layer: "Code", emoji: "⌨️", title: "Legacy Tooling Preference", desc: "Researchers clinging to old, non-auditable statistical packages (Stata, SPSS).", ref: "#", r: { over: 70, eq: 60, ev: 30, cred: 50, simp: 85, coh: 10, stew: 20, clar: 20, sal: 30, ess: 10, urg: 40 } },
+        { id: 70, persp: "Trad", layer: "Gov", emoji: "🚪", title: "Institutional Silos", desc: "Data controllers unwilling to interoperate or share access mechanisms.", ref: "#", r: { over: 40, eq: 10, ev: 30, cred: 60, simp: 90, coh: 5, stew: 30, clar: 20, sal: 50, ess: 5, urg: 65 } },
+        { id: 71, persp: "Trad", layer: "Infra", emoji: "🧯", title: "Firewall-as-Security", desc: "Belief that perimeter defense alone guarantees data safety.", ref: "#", r: { over: 80, eq: 60, ev: 40, cred: 50, simp: 90, coh: 15, stew: 10, clar: 20, sal: 60, ess: 0, urg: 55 } },
+        { id: 72, persp: "Trad", layer: "Code", emoji: "🐌", title: "Manual Data Cleaning", desc: "Slow, error-prone process of manually fixing data before analysis.", ref: "#", r: { over: 60, eq: 40, ev: 20, cred: 50, simp: 80, coh: 20, stew: 30, clar: 15, sal: 10, ess: 15, urg: 70 } },
+        
+        // Privacy Advocate (Focus on Risk & Control)
+        { id: 73, persp: "Priv", layer: "Trust", emoji: "🕵️", title: "Shadow Data Economy", desc: "Concern over unregulated sharing/selling of non-NHS linked datasets.", ref: "#", r: { over: 30, eq: 10, ev: 95, cred: 10, simp: 20, coh: 10, stew: 5, clar: 5, sal: 90, ess: 5, urg: 100 } },
+        { id: 74, persp: "Priv", layer: "Gov", emoji: "⏱️", title: "Sunset Clauses", desc: "Insisting that data powers granted for an emergency expire automatically.", ref: "#", r: { over: 95, eq: 90, ev: 80, cred: 98, simp: 70, coh: 90, stew: 99, clar: 95, sal: 80, ess: 90, urg: 95 } },
+        { id: 75, persp: "Priv", layer: "Out", emoji: "🚫", title: "Zero Data Release Default", desc: "The philosophical stance that no outputs should be released unless explicitly justified by public good.", ref: "#", r: { over: 10, eq: 20, ev: 5, cred: 80, simp: 90, coh: 40, stew: 98, clar: 70, sal: 50, ess: 20, urg: 80 } },
+        { id: 76, persp: "Priv", layer: "Code", emoji: "⚙️", title: "Auditability of ML Inputs", desc: "Demanding transparency on the specific datasets used to train AI models.", ref: "#", r: { over: 80, eq: 70, ev: 90, cred: 95, simp: 25, coh: 85, stew: 90, clar: 100, sal: 60, ess: 80, urg: 85 } },
+
+        // Tech/Ops (Focus on Scalability & Speed)
+        { id: 77, persp: "Tech", layer: "Infra", emoji: "🔄", title: "Automated Scaling", desc: "Infrastructure instantly adapting capacity to meet peak research demand.", ref: "#", r: { over: 98, eq: 80, ev: 95, cred: 90, simp: 85, coh: 100, stew: 90, clar: 80, sal: 30, ess: 95, urg: 60 } },
+        { id: 78, persp: "Tech", layer: "Code", emoji: "🧩", title: "Microservices Architecture", desc: "Breaking down complex data processing into smaller, manageable, reusable components.", ref: "#", r: { over: 90, eq: 70, ev: 90, cred: 95, simp: 40, coh: 98, stew: 90, clar: 90, sal: 20, ess: 100, urg: 50 } },
+        { id: 79, persp: "Tech", layer: "Gov", emoji: "🔧", title: "Governance-as-Code", desc: "Implementing policy rules directly into automated infrastructure configurations (Zero Trust principle).", ref: "#", r: { over: 95, eq: 75, ev: 95, cred: 100, simp: 30, coh: 100, stew: 98, clar: 95, sal: 40, ess: 95, urg: 85 } },
+        { id: 80, persp: "Tech", layer: "Out", emoji: "⚡", title: "Instant Release Validation", desc: "System instantly verifies output risk before human review.", ref: "#", r: { over: 85, eq: 85, ev: 90, cred: 90, simp: 90, coh: 95, stew: 95, clar: 90, sal: 30, ess: 90, urg: 70 } },
+
+        // Latent (Focus on Soft Factors & Culture)
+        { id: 81, persp: "Lat", layer: "Trust", emoji: "📺", title: "Misinformation Campaigns", desc: "Coordinated attempts to undermine public trust in health data sharing systems.", ref: "#", r: { over: 10, eq: 5, ev: 90, cred: 5, simp: 98, coh: 1, stew: 1, clar: 50, sal: 100, ess: 0, urg: 100 } },
+        { id: 82, persp: "Lat", layer: "Gov", emoji: "🚧", title: "The 'Innovation Tax'", desc: "Bureaucratic slowness that makes it easier to keep doing things the old, unsafe way.", ref: "#", r: { over: 20, eq: 20, ev: 10, cred: 50, simp: 80, coh: 5, stew: 30, clar: 20, sal: 30, ess: 10, urg: 90 } },
+        { id: 83, persp: "Lat", layer: "Code", emoji: "🔀", title: "Shadow IT Use", desc: "Researchers bypassing official secure systems using personal, uncontrolled tools.", ref: "#", r: { over: 15, eq: 40, ev: 50, cred: 10, simp: 95, coh: 10, stew: 5, clar: 5, sal: 20, ess: 0, urg: 80 } },
+        { id: 84, persp: "Lat", layer: "Infra", emoji: "💻", title: "Lack of Training/Support", desc: "The difficulty in getting effective technical help, leading to frustration and mistakes.", ref: "#", r: { over: 40, eq: 15, ev: 50, cred: 70, simp: 10, coh: 40, stew: 50, clar: 60, sal: 30, ess: 30, urg: 75 } },
+
+        // Patient (Focus on Agency & Hope)
+        { id: 85, persp: "Pat", layer: "Trust", emoji: "🎁", title: "Altruism of the Sick", desc: "High willingness among patients with serious illnesses to share data for collective progress.", ref: "#", r: { over: 95, eq: 30, ev: 90, cred: 70, simp: 80, coh: 80, stew: 95, clar: 80, sal: 70, ess: 70, urg: 90 } },
+        { id: 86, persp: "Pat", layer: "Gov", emoji: "🧑‍⚖️", title: "Personal Data Dashboard", desc: "The capability for every patient to view a simplified log of all uses of their data.", ref: "#", r: { over: 90, eq: 100, ev: 60, cred: 95, simp: 40, coh: 80, stew: 90, clar: 100, sal: 98, ess: 80, urg: 85 } },
+
+        // Public (Focus on Ethical Scale)
+        { id: 87, persp: "Pub", layer: "Code", emoji: "📊", title: "Open Output Data", desc: "The public argument for releasing the *processed* aggregated data (not the raw data) under open licenses.", ref: "#", r: { over: 95, eq: 98, ev: 90, cred: 85, simp: 70, coh: 90, stew: 85, clar: 95, sal: 70, ess: 90, urg: 70 } },
+        { id: 88, persp: "Pub", layer: "Trust", emoji: "⚖️", title: "Public Benefit Test", desc: "Requiring every data release to pass a high bar of demonstrated public health benefit.", ref: "#", r: { over: 90, eq: 90, ev: 95, cred: 95, simp: 50, coh: 90, stew: 98, clar: 90, sal: 85, ess: 95, urg: 90 } },
+
+        // Remaining 12 points to reach N=100
+        { id: 89, persp: "Core", layer: "Infra", emoji: "🛠️", title: "Versioned Data Snapshots", desc: "Ensuring reproducibility by freezing the exact dataset version used for any published analysis.", ref: "#", r: { over: 98, eq: 80, ev: 100, cred: 99, simp: 40, coh: 100, stew: 95, clar: 90, sal: 30, ess: 100, urg: 75 } },
+        { id: 90, persp: "Trad", layer: "Code", emoji: "🚫", title: "Lack of Validation Checks", desc: "Running analysis without basic sanity checks on data quality or expected ranges.", ref: "#", r: { over: 20, eq: 10, ev: 5, cred: 5, simp: 95, coh: 5, stew: 5, clar: 10, sal: 10, ess: 0, urg: 90 } },
+        { id: 91, persp: "Priv", layer: "Trust", emoji: "🤫", title: "Commercial Secrecy", desc: "Fear that lucrative commercial data access deals are being struck without public knowledge.", ref: "#", r: { over: 20, eq: 10, ev: 80, cred: 5, simp: 60, coh: 10, stew: 1, clar: 5, sal: 99, ess: 0, urg: 100 } },
+        { id: 92, persp: "Tech", layer: "Gov", emoji: "📅", title: "Automated Expiry of Access", desc: "Technical controls that revoke researcher permissions instantly upon project completion.", ref: "#", r: { over: 95, eq: 90, ev: 95, cred: 100, simp: 70, coh: 100, stew: 100, clar: 90, sal: 50, ess: 95, urg: 80 } },
+        { id: 93, persp: "Lat", layer: "Code", emoji: "📉", title: "Fear of Complexity", desc: "Researchers avoiding robust, secure methods because they are perceived as too technically difficult.", ref: "#", r: { over: 50, eq: 20, ev: 60, cred: 60, simp: 10, coh: 70, stew: 40, clar: 50, sal: 30, ess: 50, urg: 60 } },
+        { id: 94, persp: "Pat", layer: "Out", emoji: "💰", title: "Patient Data Royalty", desc: "The proposal that patients should receive a small payment or benefit share from commercial use of their aggregated data.", ref: "#", r: { over: 60, eq: 95, ev: 70, cred: 80, simp: 50, coh: 80, stew: 90, clar: 70, sal: 85, ess: 70, urg: 75 } },
+        { id: 95, persp: "Pub", layer: "Gov", emoji: "🏛️", title: "Centralized Authority", desc: "The belief that data governance must be vested entirely in a single, unchallengeable public body.", ref: "#", r: { over: 70, eq: 40, ev: 60, cred: 80, simp: 80, coh: 90, stew: 85, clar: 70, sal: 60, ess: 60, urg: 50 } },
+        { id: 96, persp: "Core", layer: "Trust", emoji: "💡", title: "Public Education Initiatives", desc: "Active government and academic efforts to educate the public on the methods and benefits of SDEs.", ref: "#", r: { over: 95, eq: 98, ev: 80, cred: 95, simp: 80, coh: 90, stew: 95, clar: 100, sal: 90, ess: 90, urg: 70 } },
+        { id: 97, persp: "Trad", layer: "Out", emoji: "🛑", title: "Statistical Veto Power", desc: "A senior statistician can manually halt the release of outputs deemed too risky, regardless of automated checks.", ref: "#", r: { over: 60, eq: 50, ev: 50, cred: 70, simp: 80, coh: 60, stew: 80, clar: 50, sal: 40, ess: 50, urg: 40 } },
+        { id: 98, persp: "Priv", layer: "Infra", emoji: "🚪", title: "Personal Data Access Right", desc: "The right of a patient to receive a copy of their entire processed record from any SDE.", ref: "#", r: { over: 90, eq: 100, ev: 20, cred: 95, simp: 60, coh: 70, stew: 90, clar: 90, sal: 95, ess: 80, urg: 80 } },
+        { id: 99, persp: "Tech", layer: "Code", emoji: "🧪", title: "Reproducibility Scorecard", desc: "Automatically assigning a reproducibility confidence score to every piece of submitted code.", ref: "#", r: { over: 95, eq: 90, ev: 100, cred: 98, simp: 50, coh: 100, stew: 95, clar: 98, sal: 40, ess: 100, urg: 70 } },
+        { id: 100, persp: "Lat", layer: "Trust", emoji: "💸", title: "Data is the New Oil Narrative", desc: "The pervasive media metaphor that frames health data purely as a valuable, extractable resource.", ref: "#", r: { over: 80, eq: 40, ev: 70, cred: 30, simp: 90, coh: 20, stew: 10, clar: 50, sal: 100, ess: 0, urg: 95 } }
     ];
 
     // --- 3. SETUP ---
     const state = { 
-        mode: '3D', 
-        x: 'sec', y: 'tran', z: 'priv', 
-        color: 'persp', size: 'fixed', opacity: 'fixed', halo: 'none', 
+        mode: '3D', x: 'over', y: 'eq', z: 'ev', 
+        color: 'persp', size: 'ev', opacity: 'fixed', halo: 'none', 
         showEmojis: false, emojiOnly: false, showLabels: false,
         selectedPerspectives: Object.keys(PERSPECTIVES),
-        selectedLayers: Object.keys(LAYERS)
+        selectedLayers: Object.keys(LAYERS),
+        // Stored list of NAOs, populated by static data since persistence is off
+        naoData: [], 
+        // Index map for quick lookup by ID
+        naoMap: new Map(), 
     };
     
+    // Global variable declarations
     const $ = id => document.getElementById(id);
+    const labelsContainer = $('labels-container'); 
+    const container3D = $('three-container'); 
+    const container2D = $('d3-container');    
     
-    const getData = () => RAW_DATA.filter(d => 
-        state.selectedPerspectives.includes(d.persp) && 
-        state.selectedLayers.includes(d.layer)
-    );
+    // State tracker for currently active item (for synchronization)
+    let currentActiveId = null;
 
+    // 3D Hover/Highlight variables
+    let highlightedObject = null;
+    let hoverLabelEl = null; 
+
+    // Declare THREE.js global objects, initializing them to null.
+    let scene = null, camera = null, renderer = null, controls = null, raycaster = null, group = null;
+    
+    // Declare 'mouse' globally here (before usage in checkHover/animate)
+    const mouse = new THREE.Vector2(); 
+
+    
+    // -------------------------------------------------------------
+    // --- CORE JAVASCRIPT FUNCTIONS (Must be hoisted/defined first) ---
+    // -------------------------------------------------------------
+
+    // Function to populate generic select dropdowns
     const populate = (sel) => {
         METRICS.forEach(m => {
             const opt = document.createElement('option'); opt.value = m.id; opt.textContent = m.label; sel.appendChild(opt);
         });
     };
-    populate($('xSel')); populate($('ySel')); populate($('zSel'));
-    $('xSel').value = state.x; $('ySel').value = state.y; $('zSel').value = state.z;
-    populate($('sizeSel')); populate($('opacitySel')); populate($('haloSel'));
-    populate($('colorSel'));
 
-    const initLegend = () => {
-        const pList = $('perspList');
-        Object.keys(PERSPECTIVES).forEach(k => {
+    // Function to toggle the dimensional scores visibility
+    window.toggleDimensionDetails = function() {
+        const tooltip = $('tooltip');
+        tooltip.classList.toggle('dimension-details-open');
+        tooltip.classList.toggle('dimension-details-collapsed');
+    }
+
+    // Function to populate the metric inputs in the Editor panel
+    function populateMetricInputs(metrics) {
+        const container = $('metricInputs');
+        if (!container) return; // Safety check
+        container.innerHTML = '';
+        metrics.forEach(m => {
             const div = document.createElement('div');
-            div.className = 'legend-item';
-            div.innerHTML = `<input type="checkbox" value="${k}" checked> <div class="color-dot" style="background:${PERSPECTIVES[k].color}"></div><span>${PERSPECTIVES[k].name}</span>`;
-            div.querySelector('input').onchange = (e) => togglePersp(k, e.target.checked);
-            pList.appendChild(div);
+            div.className = 'range-group';
+            div.innerHTML = `
+                <label for="metric-${m.id}" style="width: 100px;">${m.label}</label>
+                <input type="range" id="metric-${m.id}" min="0" max="100" step="5" value="50" oninput="updateRangeValue('${m.id}', this.value)" disabled>
+                <span class="range-val" id="val-${m.id}">50</span>`;
+            container.appendChild(div);
+        });
+    }
+    
+    // Function to populate the Perspective and Layer dropdowns in the Editor panel
+    function populateNaoDropdowns() {
+        const perspSel = $('naoPersp');
+        const layerSel = $('naoLayer');
+        
+        if (!perspSel || !layerSel) return; // Safety check
+
+        perspSel.innerHTML = '';
+        layerSel.innerHTML = '';
+
+        Object.keys(PERSPECTIVES).forEach(key => {
+            const opt = document.createElement('option');
+            opt.value = key;
+            opt.textContent = PERSPECTIVES[key].name;
+            perspSel.appendChild(opt);
         });
 
-        const lList = $('layerList');
-        Object.keys(LAYERS).forEach(k => {
-            const div = document.createElement('div');
-            div.className = 'legend-item';
-            div.innerHTML = `<input type="checkbox" value="${k}" checked> <div class="color-dot" style="background:${LAYERS[k].color}"></div><span>${LAYERS[k].name}</span>`;
-            div.querySelector('input').onchange = (e) => toggleLayer(k, e.target.checked);
-            lList.appendChild(div);
+        Object.keys(LAYERS).forEach(key => {
+            const opt = document.createElement('option');
+            opt.value = key;
+            opt.textContent = LAYERS[key].name;
+            layerSel.appendChild(opt);
         });
+    }
+
+    // Function to handle range slider value updates
+    window.updateRangeValue = (id, value) => {
+        const el = $(`val-${id}`);
+        if (el) el.textContent = value;
     };
+    
+    // --- FIREBASE/DATA FUNCTIONS (STUBS for static mode) ---
+    async function seedInitialData(db) { return; }
+    function setupRealtimeListener(db) { return; }
+    async function saveNao(nao) { console.error("Save operation disabled in static mode."); return; }
+    async function deleteNao(id) { console.error("Delete failed: Database persistence is disabled in this static version."); return; }
+    window.handleDelete = () => { console.error("Delete functionality is disabled in this static version."); };
+
+    window.openEditor = (nao) => {
+        const form = $('naoForm');
+        const saveButton = $('saveBtn');
+        const deleteButton = $('deleteBtn');
+        $('tooltip').style.display = 'none';
+        
+        if (!form) return; // Safety check
+
+        if (nao) {
+            $('editor-title').textContent = `VIEWING: ${nao.title}`;
+            $('naoId').value = nao.id;
+            $('naoTitle').value = nao.title;
+            $('naoEmoji').value = nao.emoji;
+            $('naoPersp').value = nao.persp;
+            $('naoLayer').value = nao.layer;
+            $('naoDesc').value = nao.desc;
+            $('naoRef').value = nao.ref || '';
+            $('deleteBtn').style.display = 'none'; // Ensure delete is hidden in static mode
+        } else {
+            $('editor-title').textContent = "ADD NEW NAO POINT (DISABLED)";
+            form.reset();
+            $('naoId').value = '';
+            $('deleteBtn').style.display = 'none';
+        }
+        
+        // Populate slider values for both new and existing NAOs
+        METRICS.forEach(m => {
+            const val = nao ? (nao.r[m.id] || 50) : 50;
+            // Note: input fields are disabled in HTML now, making this a read-only view
+            const metricEl = $(`metric-${m.id}`);
+            if (metricEl) metricEl.value = val;
+            window.updateRangeValue(m.id, val);
+        });
+        
+        // Ensure buttons are disabled for security/clarity in this static context
+        const addButton = $('addNaoBtn');
+        if (addButton) addButton.disabled = true;
+        if (saveButton) saveButton.disabled = true;
+        if (deleteButton) deleteButton.disabled = true;
+
+        $('editor').style.display = 'flex';
+    };
+
+    window.closeEditor = () => {
+        const editor = $('editor');
+        if (editor) editor.style.display = 'none';
+    };
+    
+    // Handle form submission
+    $('naoForm').onsubmit = (e) => {
+        e.preventDefault();
+        console.error("Save operation disabled in static mode.");
+    };
+
+
+    // --- VISUALIZATION LOGIC FUNCTIONS ---
+
+    // Dual Filter Logic
+    const getData = () => state.naoData.filter(d => 
+        state.selectedPerspectives.includes(d.persp) && 
+        state.selectedLayers.includes(d.layer)
+    );
     
     const togglePersp = (key, checked) => {
         if(checked) { if(!state.selectedPerspectives.includes(key)) state.selectedPerspectives.push(key); }
@@ -430,209 +899,81 @@
     };
 
     window.toggleAll = () => {
-        const chk = $('selectAll').checked;
-        state.selectedPerspectives = chk ? Object.keys(PERSPECTIVES) : [];
-        state.selectedLayers = chk ? Object.keys(LAYERS) : [];
-        document.querySelectorAll('#legend input').forEach(i => i.checked = chk);
+        const chk = $('selectAll');
+        if (!chk) return;
+        const checked = chk.checked;
+        state.selectedPerspectives = checked ? Object.keys(PERSPECTIVES) : [];
+        state.selectedLayers = checked ? Object.keys(LAYERS) : [];
+        document.querySelectorAll('#legend input:not(#selectAll)').forEach(i => i.checked = checked);
         updateViz();
     };
-    
-    initLegend();
 
-    // DRAG & RESIZE (Keeping existing logic)
-    function makeDraggable(panel, handle) {
-        let isDragging = false, startX, startY, startLeft, startTop;
-        const start = (e) => {
-            if(e.target.closest('.toggle-btn') || e.target.closest('.panel-content')) return;
-            isDragging = true;
-            const evt = e.touches ? e.touches[0] : e;
-            startX = evt.clientX; startY = evt.clientY;
-            const rect = panel.getBoundingClientRect();
-            startLeft = rect.left; startTop = rect.top;
-            e.preventDefault();
-        };
-        const move = (e) => {
-            if(!isDragging) return;
-            const evt = e.touches ? e.touches[0] : e;
-            const dx = evt.clientX - startX; const dy = evt.clientY - startY;
-            panel.style.left = (startLeft + dx) + 'px'; panel.style.top = (startTop + dy) + 'px';
-            panel.style.right = 'auto';
-        };
-        const end = () => { isDragging = false; };
-        handle.addEventListener('mousedown', start); handle.addEventListener('touchstart', start);
-        document.addEventListener('mousemove', move); document.addEventListener('touchmove', move, {passive:false});
-        document.addEventListener('mouseup', end); document.addEventListener('touchend', end);
-    }
-    makeDraggable($('controls'), $('controls').querySelector('.panel-header'));
-    makeDraggable($('legend'), $('legend').querySelector('.panel-header'));
-    makeDraggable($('tooltip'), $('tooltip').querySelector('.panel-header'));
+    const initLegend = () => {
+        const pList = $('perspList');
+        const lList = $('layerList');
+        if (!pList || !lList) return; // Safety check
 
-    const initResizer = () => {
-        let isResizing = false;
-        const start = (e) => { isResizing = true; e.preventDefault(); };
-        const move = (e) => {
-            if(!isResizing) return;
-            const evt = e.touches ? e.touches[0] : e;
-            const totalH = window.innerHeight;
-            const y = Math.max(100, Math.min(evt.clientY, totalH - 100));
-            $('mainLayout').style.gridTemplateRows = `1fr 12px ${totalH - y - 12}px`;
-            onResize();
-        };
-        const end = () => { isResizing = false; onResize(); };
-        $('resizer').addEventListener('mousedown', start); $('resizer').addEventListener('touchstart', start);
-        document.addEventListener('mousemove', move); document.addEventListener('touchmove', move, {passive:false});
-        document.addEventListener('mouseup', end); document.addEventListener('touchend', end);
-    };
-    initResizer();
-
-    // --- 3D ENGINE ---
-    let scene, camera, renderer, controls, raycaster, group;
-    const mouse = new THREE.Vector2();
-
-    function init3D() {
-        if(scene) return;
-        scene = new THREE.Scene(); scene.fog = new THREE.FogExp2(0x0f172a, 0.002);
-        camera = new THREE.PerspectiveCamera(60, $('stage').clientWidth / $('stage').clientHeight, 0.1, 1000);
-        camera.position.set(120, 100, 150);
-        renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-        renderer.setSize($('stage').clientWidth, $('stage').clientHeight);
-        $('three-container').appendChild(renderer.domElement);
-        controls = new THREE.OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true; controls.dampingFactor = 0.05;
-        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-        scene.add(new THREE.DirectionalLight(0xffffff, 0.8));
-        
-        const origin = new THREE.Vector3(-50, -50, -50); const color = 0x22d3ee;
-        [new THREE.Vector3(1,0,0), new THREE.Vector3(0,1,0), new THREE.Vector3(0,0,1)].forEach(dir => {
-            scene.add(new THREE.ArrowHelper(dir, origin, 135, color, 6, 4));
+        pList.innerHTML = ''; 
+        Object.keys(PERSPECTIVES).forEach(k => {
+            const div = document.createElement('div');
+            div.className = 'legend-item';
+            div.innerHTML = `<input type="checkbox" value="${k}" checked> <div class="color-dot" style="background:${PERSPECTIVES[k].color}"></div><span>${PERSPECTIVES[k].name}</span>`;
+            div.querySelector('input').onchange = (e) => togglePersp(k, e.target.checked);
+            pList.appendChild(div);
         });
 
-        group = new THREE.Group(); scene.add(group);
-        raycaster = new THREE.Raycaster(); raycaster.params.Points.threshold = 10;
+        lList.innerHTML = ''; 
+        Object.keys(LAYERS).forEach(k => {
+            const div = document.createElement('div');
+            div.className = 'legend-item';
+            div.innerHTML = `<input type="checkbox" value="${k}" checked> <div class="color-dot" style="background:${LAYERS[k].color}"></div><span>${LAYERS[k].name}</span>`;
+            div.querySelector('input').onchange = (e) => toggleLayer(k, e.target.checked);
+            lList.appendChild(div);
+        });
+    };
+    
+    // --- GLOBAL SYNC HANDLER ---
+    function syncListHighlight(clickedId, clickedData) {
+        const list = $('list');
+        
+        const shouldDeactivate = clickedId === currentActiveId;
 
-        window.addEventListener('resize', onResize);
-        const interact = (e) => {
-            if(e.target.closest('.draggable-panel') || e.target.id==='resizer') return;
-            const rect = $('three-container').getBoundingClientRect();
-            const cx = e.clientX || (e.touches && e.touches[0].clientX);
-            const cy = e.clientY || (e.touches && e.touches[0].clientY);
-            if(!cx) return;
-            mouse.x = ((cx - rect.left) / rect.width) * 2 - 1;
-            mouse.y = -((cy - rect.top) / rect.height) * 2 + 1;
-            raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects(group.children);
-            if(intersects.length > 0 && intersects[0].object.userData.id) {
-                if(e.type==='click' || e.type==='touchstart') showTooltip(intersects[0].object.userData);
-                $('stage').style.cursor = 'pointer';
-            } else { $('stage').style.cursor = 'default'; }
-        };
-        ['click','mousemove','touchstart'].forEach(evt => $('three-container').addEventListener(evt, interact, {passive:false}));
-        animate();
-    }
+        if (list) Array.from(list.children).forEach(item => item.classList.remove('active'));
+        currentActiveId = null;
+        const tooltip = $('tooltip');
+        const editor = $('editor');
 
-    function onResize() {
-        if(state.mode === '3D') {
-            camera.aspect = $('stage').clientWidth / $('stage').clientHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize($('stage').clientWidth, $('stage').clientHeight);
-        } else { init2D(); }
-    }
+        if (tooltip) tooltip.style.display = 'none';
+        if (editor) editor.style.display = 'none';
 
-    function animate() {
-        requestAnimationFrame(animate);
-        if(state.mode==='3D') { 
-            controls.update(); 
-            renderer.render(scene, camera); 
+        if (shouldDeactivate || clickedId === null) {
+            return;
+        } 
+
+        const itemToActivate = list ? list.querySelector(`[data-id="${clickedId}"]`) : null;
+        
+        if (!clickedData) {
+            clickedData = state.naoMap.get(clickedId);
+        }
+
+        if (itemToActivate && clickedData) {
+            itemToActivate.classList.add('active');
+            currentActiveId = clickedId;
+            showTooltip(clickedData);
         }
     }
 
-    // --- 2D ENGINE ---
-    let svg2d;
-    function init2D() {
-        $('d3-container').innerHTML = '';
-        const w = $('d3-container').clientWidth, h = $('d3-container').clientHeight;
-        if(h < 10) return;
-        
-        svg2d = d3.select("#d3-container").append("svg").attr("width", w).attr("height", h);
-        const m = {top:60,right:30,bottom:40,left:60};
-        const zoomRect = svg2d.append("rect").attr("width", w).attr("height", h).style("fill", "none").style("pointer-events", "all"); // Zoom Catcher BACK
-        const g = svg2d.append("g").attr("transform", `translate(${m.left},${m.top})`);
-        const iw = w-m.left-m.right, ih = h-m.top-m.bottom;
+    // --- 3D / RENDERING UTILITIES ---
 
-        svg2d.append("defs").append("clipPath").attr("id", "clip").append("rect").attr("width", iw).attr("height", ih);
-
-        const xScale = d3.scaleLinear().domain([0,100]).range([0,iw]);
-        const yScale = d3.scaleLinear().domain([0,100]).range([ih,0]);
-        
-        const xAxisG = g.append("g").attr("class", "axis").attr("transform", `translate(0,${ih})`);
-        const yAxisG = g.append("g").attr("class", "axis");
-        
-        g.append("text").attr("x", iw).attr("y", ih+30).attr("fill", "var(--accent)").attr("text-anchor", "end").style("font-weight","bold").text(getLabel(state.x));
-        g.append("text").attr("transform", "rotate(-90)").attr("x", -ih/2).attr("y", -45).attr("fill", "var(--accent)").style("text-anchor", "middle").style("font-weight","bold").text(getLabel(state.y));
-
-        const content = g.append("g").attr("clip-path", "url(#clip)");
-
-        const renderNodes = () => {
-            content.selectAll("*").remove();
-            const data = getData();
-            
-            const nodes = content.selectAll(".n").data(data).enter().append("g")
-                .attr("class", "n")
-                .attr("transform", d => `translate(${xScale(d.r[state.x]||0)},${yScale(d.r[state.y]||0)})`)
-                .style("cursor", "pointer")
-                .on("click", (e,d) => { e.stopPropagation(); showTooltip(d); });
-
-            if(state.halo!=='none') {
-                nodes.append("circle").attr("r", d => getRadius(d,8) + getHalo(d,8)).attr("fill", d=>getHaloColor(d)).attr("opacity",0.2);
-            }
-
-            if (!state.emojiOnly) {
-                nodes.append("circle").attr("r", d=>getRadius(d,8)).attr("fill", d=>getColor(d)).attr("opacity", d=>getOpacity(d)).attr("stroke","#fff").attr("stroke-width",1.5);
-            }
-
-            if (state.showEmojis || state.emojiOnly) {
-                nodes.append("text").text(d=>d.emoji).attr("dy","0.35em").attr("text-anchor","middle").style("font-size", d=>(getRadius(d,8)*1.2)+"px").style("pointer-events","none");
-            }
-            
-            // Hit Area
-            nodes.append("circle").attr("r", 30).attr("fill", "transparent");
-
-            if(state.showLabels) {
-                content.selectAll(".lbl").data(data).enter().append("text")
-                    .attr("x", d=>xScale(d.r[state.x]||0)).attr("y", d=>yScale(d.r[state.y]||0)+getRadius(d,8)+15)
-                    .text(d=>d.title).attr("fill","#ccc").style("font-size","10px").attr("text-anchor","middle").style("pointer-events","none").style("text-shadow","0 1px 2px black");
-            }
-        }
-
-        const zoom = d3.zoom()
-            .scaleExtent([0.5, 5])
-            .extent([[0, 0], [w, h]])
-            .on("zoom", (event) => {
-                const newX = event.transform.rescaleX(xScale);
-                const newY = event.transform.rescaleY(yScale);
-                xAxisG.call(d3.axisBottom(newX).tickSize(-ih));
-                yAxisG.call(d3.axisLeft(newY).tickSize(-iw));
-                content.selectAll(".n").attr("transform", d => `translate(${newX(d.r[state.x]||0)},${newY(d.r[state.y]||0)})`);
-                if(state.showLabels) {
-                    content.selectAll("text:not([dy])")
-                        .attr("x", d=>newX(d.r[state.x]||0)).attr("y", d=>newY(d.r[state.y]||0)+getRadius(d,8)+15);
-                }
-            });
-        
-        xAxisG.call(d3.axisBottom(xScale).tickSize(-ih));
-        yAxisG.call(d3.axisLeft(yScale).tickSize(-iw));
-        renderNodes();
-        zoomRect.call(zoom);
-    }
-
-    // --- LOGIC ---
     function getLabel(id) { return METRICS.find(m => m.id===id)?.label || id; }
     function getColor(d) {
         if(state.color==='persp') return PERSPECTIVES[d.persp].color;
         if(state.color==='layer') return LAYERS[d.layer].color;
-        const val = d.r[state.color]||0; return `hsl(${val*1.2}, 70%, 50%)`;
+        const val = d.r[state.color]||0; 
+        const hue = 120 * (val/100); 
+        return `hsl(${hue}, 70%, 50%)`;
     }
-    function getRadius(d, b) { return state.size==='fixed' ? b : b * (0.5 + (d.r[state.size]||0)/100 * 2.0); }
+    function getRadius(d, b) { return state.size==='fixed' ? b : b * (0.5 + (d.r[state.size]||0)/100 * 2.0); } 
     function getOpacity(d) { return state.opacity==='fixed' ? 0.9 : 0.2 + (d.r[state.opacity]||0)/100 * 0.8; }
     
     function getHalo(d, b) { 
@@ -648,16 +989,24 @@
     function getExplainer(k, v) { return v>=50 ? EXPLAINERS[k].high : EXPLAINERS[k].low; }
 
     function makeObject(d, x, y, z, rad, color, op) {
+        const hexColor = parseInt(color.substring(1), 16);
+
         if (state.showEmojis || state.emojiOnly) {
             const cvs = document.createElement('canvas'); cvs.width = 128; cvs.height = 128;
             const ctx = cvs.getContext('2d');
+            
             if (!state.emojiOnly) {
                 ctx.beginPath(); ctx.arc(64,64,60,0,Math.PI*2);
                 ctx.fillStyle = color; ctx.globalAlpha = op; ctx.fill();
                 ctx.lineWidth = 4; ctx.strokeStyle = '#fff'; ctx.globalAlpha = 1; ctx.stroke();
+            } else {
+                ctx.globalAlpha = op;
             }
+            
             ctx.font = '80px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillStyle = '#fff'; ctx.fillText(d.emoji, 64, 70);
+            ctx.fillStyle = '#fff'; 
+            ctx.fillText(d.emoji, 64, 70); 
+            
             const tex = new THREE.CanvasTexture(cvs);
             const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
             const spr = new THREE.Sprite(mat);
@@ -665,135 +1014,629 @@
             return spr;
         } else {
             const geo = new THREE.SphereGeometry(rad, 32, 32);
-            const mat = new THREE.MeshLambertMaterial({ color: color, transparent: true, opacity: op });
+            const mat = new THREE.MeshLambertMaterial({ color: hexColor, transparent: true, opacity: op });
             return new THREE.Mesh(geo, mat);
         }
     }
 
-    // Label Sprite Creator
-    function makeTextSprite(text, color='#ccc', size=1) {
-        const cvs = document.createElement('canvas'); 
-        const ctx = cvs.getContext('2d'); ctx.font = 'Bold 24px Arial';
-        const w = Math.ceil(ctx.measureText(text).width)+10; cvs.width = w; cvs.height = 30;
-        ctx.font = 'Bold 24px Arial'; ctx.fillStyle = color; 
-        ctx.shadowColor = 'black'; ctx.shadowBlur = 4; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(text, w/2, 15);
-        const tex = new THREE.CanvasTexture(cvs);
-        const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: true }); 
-        const spr = new THREE.Sprite(mat); spr.scale.set(w*0.3*size, 9*size, 1);
-        return spr;
+    // --- 3D ENGINE FUNCTIONS (init3D, onPointerMove, checkHover, onResize, animate) ---
+
+    function init3D() {
+        if(scene) {
+             group.clear();
+             labelsContainer.innerHTML = ''; 
+             scene.userData.labels = [];
+             return;
+        }
+        
+        scene = new THREE.Scene(); scene.fog = new THREE.FogExp2(0x0f172a, 0.002);
+        camera = new THREE.PerspectiveCamera(60, container3D.clientWidth / container3D.clientHeight, 0.1, 1000);
+        camera.position.set(120, 100, 150);
+        renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        renderer.setSize(container3D.clientWidth, container3D.clientHeight);
+        container3D.appendChild(renderer.domElement);
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true; controls.dampingFactor = 0.05;
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        scene.add(new THREE.DirectionalLight(0xffffff, 0.8));
+        
+        const axisLength = 100;
+        const origin = new THREE.Vector3(-50, -50, -50); 
+        const whiteAxis = 0xFFFFFF; 
+        const headLength = 8;
+        const headWidth = 6;
+        
+        // Ensure scene objects are clean when initializing
+        if (scene) scene.children = scene.children.filter(obj => !obj.isLine && !obj.isArrowHelper);
+
+        const gridMaterial = new THREE.LineBasicMaterial({ color: 0x1e293b, transparent: true, opacity: 0.8 });
+        const size = 100; const divisions = 10;
+        const step = size / divisions;
+        
+        for (let i = 0; i <= divisions; i++) {
+            scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(-50, -50 + i * step, -50), new THREE.Vector3(-50, -50 + i * step, 50)
+            ]), gridMaterial));
+            scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(-50, -50, -50 + i * step), new THREE.Vector3(-50, 50, -50 + i * step)
+            ]), gridMaterial));
+             scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(-50 + i * step, -50, -50), new THREE.Vector3(-50 + i * step, -50, 50)
+            ]), gridMaterial));
+            scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(-50, -50, -50 + i * step), new THREE.Vector3(50, -50, -50 + i * step)
+            ]), gridMaterial));
+        }
+        
+        scene.add(new THREE.ArrowHelper(
+            new THREE.Vector3(1, 0, 0), origin, axisLength, whiteAxis, headLength, headWidth
+        ));
+        
+        scene.add(new THREE.ArrowHelper(
+            new THREE.Vector3(0, 1, 0), origin, axisLength, whiteAxis, headLength, headWidth
+        ));
+        
+        scene.add(new THREE.ArrowHelper(
+            new THREE.Vector3(0, 0, 1), origin, axisLength, whiteAxis, headLength, headWidth
+        ));
+
+        group = new THREE.Group(); scene.add(group);
+        raycaster = new THREE.Raycaster(); raycaster.params.Points.threshold = 5;
+
+        if (!hoverLabelEl) { 
+            hoverLabelEl = document.createElement('div');
+            hoverLabelEl.id = 'hover-label';
+            hoverLabelEl.style.display = 'none';
+            labelsContainer.appendChild(hoverLabelEl);
+        }
+
+        window.addEventListener('resize', onResize);
+        container3D.addEventListener('click', (event) => {
+            const rect = container3D.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(group.children);
+            if (intersects.length > 0) {
+                const pointMesh = intersects.find(i => i.object.userData.id)?.object;
+                if (pointMesh) {
+                    syncListHighlight(pointMesh.userData.id, pointMesh.userData);
+                }
+            } else {
+                 syncListHighlight(null); 
+            }
+        });
+
+        container3D.addEventListener('pointermove', onPointerMove);
+        
+        animate();
+    }
+    
+    function onPointerMove(event) {
+        const rect = container3D.getBoundingClientRect();
+        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     }
 
-    function updateViz() {
-        ['x','y','z','color','size','opacity','halo','mode'].forEach(k => state[k] = $(k+'Sel').value);
-        state.showEmojis = $('showEmojis').checked;
-        state.emojiOnly = $('emojiOnly').checked;
-        state.showLabels = $('showLabels').checked;
-        
-        if(state.mode==='3D') {
-            $('three-container').style.display='block'; $('d3-container').style.display='none';
-            $('zGroup').style.display='block'; init3D(); update3D();
-        } else {
-            $('three-container').style.display='none'; $('d3-container').style.display='block';
-            $('zGroup').style.display='none'; init2D();
+    function checkHover() {
+        if (state.mode !== '3D' || !group) return;
+
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(group.children).filter(i => i.object.userData.id);
+
+        let intersection = intersects.length > 0 ? intersects[0].object : null;
+
+        if (intersection !== highlightedObject) {
+            if (highlightedObject) {
+                highlightedObject.scale.set(1, 1, 1);
+                hoverLabelEl.style.display = 'none';
+            }
+
+            if (intersection) {
+                intersection.scale.set(1.15, 1.15, 1.15); 
+                
+                hoverLabelEl.textContent = intersection.userData.emoji + ' ' + intersection.userData.title;
+                hoverLabelEl.style.display = 'block';
+            }
+            highlightedObject = intersection;
         }
-        renderList();
+
+        if (highlightedObject) {
+            const pos = highlightedObject.position.clone();
+            pos.project(camera);
+            const width = container3D.clientWidth;
+            const height = container3D.clientHeight;
+            const widthHalf = width / 2; const heightHalf = height / 2;
+            const z = pos.z;
+
+            if (z > 1) { 
+                hoverLabelEl.style.display = 'none';
+            } else {
+                hoverLabelEl.style.display = 'block';
+                hoverLabelEl.style.left = (pos.x * widthHalf + widthHalf) + 'px';
+                hoverLabelEl.style.top = (-(pos.y * heightHalf) + heightHalf - 30) + 'px'; 
+                hoverLabelEl.style.opacity = Math.max(0.4, 1 - (camera.position.distanceTo(highlightedObject.position) / 300));
+            }
+        }
+    }
+
+
+    function onResize() {
+        if(state.mode === '3D') {
+            camera.aspect = container3D.clientWidth / container3D.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container3D.clientWidth, container3D.clientHeight);
+        } else { init2D(); }
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        if(state.mode==='3D') { 
+            controls.update(); 
+            checkHover(); 
+            renderer.render(scene, camera); 
+            updateLabels3D(); 
+        }
     }
 
     function update3D() {
-        group.clear(); scene.userData.labels = [];
-        const data = getData();
+        group.clear(); labelsContainer.innerHTML = ''; 
+        if(scene.userData.labels) scene.userData.labels = []; // Clear custom axis labels
+        
+        if (hoverLabelEl) hoverLabelEl.style.display = 'none';
 
-        data.forEach(d => {
+        getData().forEach(d => {
             const x = (d.r[state.x]||0)-50, y = (d.r[state.y]||0)-50, z = (d.r[state.z]||0)-50;
             const rad = getRadius(d, 3);
             
-            const mesh = makeObject(d, x, y, z, rad, getColor(d), getOpacity(d));
-            mesh.position.set(x,y,z); mesh.userData = d; group.add(mesh);
+            const colorMap = state.color === 'persp' ? PERSPECTIVES : LAYERS;
+            const meshColor = colorMap[state.color === 'persp' ? d.persp : d.layer].color;
 
             const h = getHalo(d, rad);
             if(h > 0.1) {
-                if(state.showEmojis || state.emojiOnly) {
-                    const hCvs = document.createElement('canvas'); hCvs.width=64; hCvs.height=64;
-                    const hCtx = hCvs.getContext('2d'); hCtx.beginPath(); hCtx.arc(32,32,30,0,Math.PI*2);
-                    hCtx.fillStyle = getHaloColor(d); hCtx.globalAlpha=0.2; hCtx.fill();
-                    const hSpr = new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(hCvs), transparent:true, depthWrite:false}));
-                    hSpr.scale.set((rad+h)*3, (rad+h)*3, 1); hSpr.position.set(x,y,z-0.1); group.add(hSpr);
-                } else {
-                    const hGeo = new THREE.SphereGeometry(rad+h, 32, 32);
-                    const hMat = new THREE.MeshBasicMaterial({ color: getHaloColor(d), transparent: true, opacity: 0.15, wireframe: false, depthWrite: false });
-                    const hMesh = new THREE.Mesh(hGeo, hMat);
-                    hMesh.position.set(x,y,z); group.add(hMesh);
-                }
+                const haloColor = state.halo === 'persp' ? PERSPECTIVES[d.persp].color : LAYERS[d.layer].color;
+                const hGeo = new THREE.SphereGeometry(rad + h, 32, 32);
+                const hMat = new THREE.MeshBasicMaterial({ color: parseInt(haloColor.substring(1), 16), transparent: true, opacity: 0.15, depthWrite: false });
+                const hMesh = new THREE.Mesh(hGeo, hMat);
+                hMesh.position.set(x,y,z); 
+                group.add(hMesh);
             }
+
+            const mesh = makeObject(d, x, y, z, rad, meshColor, getOpacity(d));
+            mesh.position.set(x,y,z); 
+            mesh.userData = d; 
+            group.add(mesh);
 
             if(state.showLabels) {
-                const lbl = makeTextSprite(d.title);
-                lbl.position.set(x, y - (rad*2.5) - 2, z); 
-                group.add(lbl);
+                const el = document.createElement('div');
+                el.className = 'scene-label'; el.textContent = d.title;
+                labelsContainer.appendChild(el); d.labelEl = el;
             }
         });
         
-        const addLbl = (tx, px, py, pz) => {
-            const s = makeTextSprite(tx, '#2dd4bf', 1.5); s.position.set(px,py,pz); group.add(s);
-        };
-        addLbl(getLabel(state.x)+" →", 85, -50, -50);
-        addLbl(getLabel(state.y)+" ↑", -50, 85, -50);
-        addLbl(getLabel(state.z)+" ↙", -50, -50, 85);
+        add3DAxisLabel(60, -50, -50, getLabel(state.x));
+        add3DAxisLabel(-50, 55, -50, getLabel(state.y));
+        add3DAxisLabel(-50, -50, 60, getLabel(state.z));
+    }
+    
+    function add3DAxisLabel(x, y, z, text) {
+        const el = document.createElement('div');
+        el.className = 'scene-label axis-title-label'; 
+        el.textContent = text;
+        scene.userData.labels = scene.userData.labels || []; // Ensure labels array exists
+        labelsContainer.appendChild(el);
+        scene.userData.labels.push({ position: new THREE.Vector3(x, y, z), labelEl: el });
     }
 
-    function showTooltip(d) {
-        $('tooltip').style.display = 'flex';
-        $('tooltip-title').textContent = d.title; // Set Title
+    function updateLabels3D() {
+        if (state.mode !== '3D') return;
+
+        const width = container3D.clientWidth;
+        const height = container3D.clientHeight;
+        const widthHalf = width / 2; const heightHalf = height / 2;
+
+        group.children.forEach(mesh => {
+            const d = mesh.userData;
+            if(d && d.labelEl) { 
+                const pos = mesh.position.clone(); 
+                pos.project(camera); 
+                
+                if (pos.z > 1 || Math.abs(pos.x) > 1.1 || Math.abs(pos.y) > 1.1) {
+                    d.labelEl.style.display = 'none';
+                } else {
+                    d.labelEl.style.display = 'block';
+                    d.labelEl.style.left = (pos.x * widthHalf + widthHalf) + 'px';
+                    d.labelEl.style.top = (-(pos.y * heightHalf) + heightHalf) + 'px';
+                    d.labelEl.style.opacity = Math.max(0.1, 1 - (camera.position.distanceTo(mesh.position) / 300));
+                }
+            }
+        });
         
-        let h = `<div style="font-size:11px;color:#999;margin-bottom:10px;">${PERSPECTIVES[d.persp].name} · ${LAYERS[d.layer].name}</div>
-            <p style="font-size:12px;color:#e2e8f0;font-style:italic;margin-bottom:12px;padding-left:8px;border-left:2px solid var(--accent)">"${d.desc}"</p>
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">`;
+        if(scene && scene.userData && scene.userData.labels) {
+            scene.userData.labels.forEach(l => {
+                const pos = l.position.clone(); pos.project(camera);
+                if (pos.z > 1) { l.labelEl.style.display = 'none'; } else {
+                    l.labelEl.style.display = 'block';
+                    l.labelEl.style.left = (pos.x * widthHalf + widthHalf) + 'px';
+                    l.labelEl.style.top = (-(pos.y * heightHalf) + heightHalf) + 'px';
+                }
+            });
+        }
+    }
+
+    function updateViz() {
+        ['xSel','ySel','zSel','colorSel','sizeSel','opacitySel','haloSel','modeSel'].forEach(k => {
+            const el = $(k);
+            if (el) state[k.replace('Sel', '')] = el.value;
+        });
+        
+        state.showLabels = $('showLabels') ? $('showLabels').checked : false;
+        state.showEmojis = $('showEmojis') ? $('showEmojis').checked : false;
+        state.emojiOnly = $('emojiOnly') ? $('emojiOnly').checked : false;
+        
+        syncListHighlight(null);
+
+        if(state.mode==='3D') {
+            container3D.style.display='block'; container2D.style.display='none';
+            $('zGroup').style.display='block'; 
+            init3D(); 
+            update3D();
+            labelsContainer.style.display='block';
+        } else {
+            container3D.style.display='none'; container2D.style.display='block';
+            $('zGroup').style.display='none'; 
+            init2D();
+        }
+        renderList();
+    }
+    
+    
+    // --- TOOLTIP LOGIC (Kept the same) ---
+    function showTooltip(d) {
+        const tooltip = $('tooltip');
+        if (!tooltip) return;
+
+        tooltip.style.display = 'flex';
+        $('tooltip-title').textContent = d.emoji + " " + d.title; 
+        
+        const pColor = PERSPECTIVES[d.persp].color;
+        const metadataHtml = `<span style="color:${PERSPECTIVES[d.persp].color};">${PERSPECTIVES[d.persp].name}</span> / <span style="color:${LAYERS[d.layer].color};">${LAYERS[d.layer].name}</span>`;
+
+        let h = `
+            <!-- 2. Main Description -->
+            <p class="narrative-desc" style="border-left-color:${pColor}">"${d.desc}"</p>
+            
+            <!-- 3. Dimension Toggle -->
+            <div class="dimension-toggle-container" onclick="toggleDimensionDetails()">
+                <span>Dimensions</span>
+                <span class="dimension-toggle-icon">▼</span>
+            </div>
+
+            <div id="dimension-scores">
+                <!-- 4. Metadata at top of expanded section -->
+                <div style="font-size:12px; font-weight:600; color:var(--muted); margin-bottom: 10px; border-bottom: 1px dashed var(--ring); padding-bottom: 5px;">
+                    ${metadataHtml}
+                </div>
+                `;
         
         METRICS.forEach(m => {
-            const isVis = [state.x, state.y, (state.mode==='3D'?state.z:null), state.color, state.size, state.opacity, state.halo].includes(m.id);
-            let tag = '';
-            if(m.id===state.x) tag='X'; else if(m.id===state.y) tag='Y'; else if(m.id===state.z && state.mode==='3D') tag='Z';
-            else if(m.id===state.size) tag='Size'; else if(m.id===state.color) tag='Color'; else if(m.id===state.halo) tag='Halo';
+            const val = d.r[m.id];
+            const explainer = getExplainer(m.id, val);
             
-            h += `<div class="score-item">
-                <div class="score-header"><span>${m.label} ${tag ? `<span class="ctx-badge">${tag}</span>` : ''}</span> <span style="font-weight:bold;color:${PERSPECTIVES[d.persp].color}">${d.r[m.id]}</span></div>
-                <div class="score-desc" style="font-size:10px; color:#ccc">${getExplainer(m.id, d.r[m.id])}</div>
+            h += `<div class="score-card">
+                <div class="score-head">
+                    <span>${m.label}</span>
+                    <span class="score-val" style="color:${pColor}">${val}</span>
+                </div>
+                <div class="score-bar-bg">
+                    <!-- Standardized Score Bar Color: var(--muted) -->
+                    <div class="score-bar" style="width:${val}%; background-color:var(--muted)"></div> 
+                </div>
+                <div class="score-text">${explainer}</div>
             </div>`;
         });
+        
         h += `</div>
-            <div style="text-align:right; font-size:11px; margin-top:10px;">
-                <a href="${d.ref || '#'}" target="_blank">Source Link ↗</a>
-            </div>`;
+            <div class="tooltip-footer">
+            <a href="${d.ref || '#'}" target="_blank" style="color:${pColor}; text-decoration:none; font-weight:600;">Source Link ↗</a>
+            <button class="btn btn-secondary" style="margin-left: 10px; padding: 5px 10px;" onclick="openEditor(state.naoMap.get('${d.id}'))">View Metrics</button>
+        </div>`;
         $('tooltip-content').innerHTML = h;
+
+        const tooltipPanel = $('tooltip');
+        if (tooltipPanel) {
+            tooltipPanel.classList.remove('dimension-details-open');
+            tooltipPanel.classList.add('dimension-details-collapsed');
+        }
     }
 
+    // --- LIST RENDERING (Kept the same) ---
     function renderList() {
-        const el = $('list'); el.innerHTML = '';
-        getData().forEach(d => {
+        const el = $('list');
+        if (!el) return; // Safety check
+        
+        el.innerHTML = '';
+        const data = getData();
+        data.forEach(d => {
             const div = document.createElement('div');
             div.className = `item`;
+            div.dataset.id = d.id; 
+            
+            if (d.id === currentActiveId) {
+                div.classList.add('active');
+            }
+
             div.style.setProperty('--layer-color', LAYERS[d.layer].color); 
             div.style.borderLeftColor = PERSPECTIVES[d.persp].color;
             div.innerHTML = `
                 <div class="item-header">
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <span style="font-size:18px;">${state.showEmojis || state.emojiOnly ? d.emoji : ''}</span>
-                        <div><div class="item-title">${d.title}</div><div class="item-meta">${d.persp} · ${d.layer}</div></div>
+                    <div class="item-emoji">${d.emoji}</div>
+                    <div class="item-info">
+                        <div class="item-title">${d.title}</div>
+                        <div class="item-meta">${PERSPECTIVES[d.persp].name} · ${LAYERS[d.layer].name}</div>
                     </div>
                 </div>
                 <div class="item-body"><p>${d.desc}</p></div>`;
-            div.onclick = () => div.classList.toggle('active');
+            
+            div.onclick = () => {
+                syncListHighlight(d.id, d);
+            };
             el.appendChild(div);
         });
+        const naoCountEl = $('naoCount');
+        if (naoCountEl) naoCountEl.textContent = `N=${data.length}`;
+    }
+    
+    // --- DRAG & RESIZE FUNCTIONS (Kept the same) ---
+    
+    function makeDraggable(panel, handle) {
+        let isDragging = false, startX, startY, startLeft, startTop;
+        let initialClientX, initialClientY; 
+
+        const start = (e) => {
+            if(e.target.closest('.toggle-btn') || e.target.closest('.panel-content')) return;
+            isDragging = true;
+            const evt = e.touches ? e.touches[0] : e;
+            initialClientX = evt.clientX; 
+            initialClientY = evt.clientY; 
+            startX = evt.clientX; startY = evt.clientY;
+            const rect = panel.getBoundingClientRect();
+            startLeft = rect.left; startTop = rect.top;
+            e.preventDefault(); 
+        };
+        const move = (e) => {
+            if(!isDragging) return;
+            const evt = e.touches ? e.touches[0] : e;
+            const dx = evt.clientX - startX; const dy = evt.clientY - startY;
+            
+            let newLeft = startLeft + dx;
+            let newTop = startTop + dy;
+            
+            const panelRect = panel.getBoundingClientRect();
+            const maxLeft = window.innerWidth - panelRect.width;
+            const maxTop = window.innerHeight - panelRect.height;
+
+            newLeft = Math.max(10, Math.min(newLeft, maxLeft - 10));
+            newTop = Math.max(65, Math.min(newTop, maxTop - 10));
+
+            panel.style.left = newLeft + 'px'; 
+            panel.style.top = newTop + 'px';
+            panel.style.right = 'auto';
+        };
+        const end = (e) => {
+            if (!isDragging) return;
+            isDragging = false;
+            
+            const evt = e.touches ? e.changedTouches[0] : e;
+            const movementX = Math.abs(evt.clientX - initialClientX);
+            const movementY = Math.abs(evt.clientY - initialClientY);
+            const moveThreshold = 5; 
+
+            if (movementX < moveThreshold && movementY < movementY) {
+            }
+        };
+        handle.addEventListener('mousedown', start); handle.addEventListener('touchstart', start);
+        document.addEventListener('mousemove', move); 
+        document.addEventListener('touchmove', move, {passive:false});
+        document.addEventListener('mouseup', end); 
+        document.addEventListener('touchend', end);
     }
 
-    ['xSel','ySel','zSel','colorSel','sizeSel','opacitySel','haloSel','modeSel'].forEach(i => $(i).addEventListener('change', updateViz));
-    $('showLabels').addEventListener('change', updateViz);
-    $('showEmojis').addEventListener('change', updateViz);
-    $('emojiOnly').addEventListener('change', updateViz);
-    init3D(); updateViz();
+    const initResizer = () => {
+        const resizer = $('resizer');
+        const mainLayout = $('mainLayout');
+        if (!resizer || !mainLayout) return; // Safety check
 
+        let isResizing = false;
+        const start = (e) => { isResizing = true; e.preventDefault(); };
+        const move = (e) => {
+            if(!isResizing) return;
+            const evt = e.touches ? e.touches[0] : e;
+            const totalH = window.innerHeight;
+            const y = Math.max(100 + 60, Math.min(evt.clientY, totalH * 0.8)); 
+            mainLayout.style.gridTemplateRows = `1fr 12px ${totalH - y - 12}px`;
+            onResize();
+        };
+        const end = () => { isResizing = false; onResize(); };
+        resizer.addEventListener('mousedown', start); resizer.addEventListener('touchstart', start);
+        document.addEventListener('mousemove', move); document.addEventListener('touchmove', move, {passive:false});
+        document.addEventListener('mouseup', end); document.addEventListener('touchend', end);
+    };
+
+    // --- 2D D3 INIT ---
+    let svg2d;
+    function init2D() {
+        if (!container2D) return; // Safety check
+        
+        container2D.innerHTML = '';
+        const w = container2D.clientWidth, h = container2D.clientHeight;
+        if(h < 10) return;
+        
+        svg2d = d3.select("#d3-container").append("svg").attr("width", w).attr("height", h);
+        const m = {top:60,right:30,bottom:40,left:60};
+
+        let mousedownX, mousedownY;
+        
+        const iw = w-m.left-m.right, ih = h-m.top-m.bottom;
+
+        const xScale = d3.scaleLinear().domain([0,100]).range([0,iw]);
+        const yScale = d3.scaleLinear().domain([0,100]).range([ih,0]);
+        
+        const zoom = d3.zoom()
+            .scaleExtent([0.5, 5])
+            .extent([[0, 0], [w, h]])
+            .filter(event => !event.target.closest('.n'))
+            .on("zoom", (event) => {
+                const newX = event.transform.rescaleX(xScale);
+                const newY = event.transform.rescaleY(yScale);
+                xAxisG.call(d3.axisBottom(newX).tickSize(-ih));
+                yAxisG.call(d3.axisLeft(newY).tickSize(-iw));
+                content.selectAll(".n").attr("transform", d => `translate(${newX(d.r[state.x]||0)},${newY(d.r[state.y]||0)})`);
+                
+                // Only update labels if they are visible
+                if(state.showLabels) {
+                    content.selectAll("text:not([dy])")
+                        .attr("x", d=>newX(d.r[state.x]||0)).attr("y", d=>newY(d.r[state.y]||0)+getRadius(d,8)+15)
+                        .text(d=>d.title).attr("fill","#ccc").style("font-size","10px").attr("text-anchor","middle").style("pointer-events","none").style("text-shadow","0 1px 2px black");
+                }
+            });
+            
+        const zoomRect = svg2d.append("rect")
+            .attr("width", w)
+            .attr("height", h)
+            .style("fill", "transparent")
+            .style("pointer-events", "all")
+            .on("click", () => {
+                syncListHighlight(null);
+            })
+            .call(zoom);
+
+        
+        const g = svg2d.append("g").attr("transform", `translate(${m.left},${m.top})`);
+        
+        svg2d.append("defs").append("clipPath").attr("id", "clip").append("rect").attr("width", iw).attr("height", ih);
+
+        
+        const xAxisG = g.append("g").attr("class", "axis").attr("transform", `translate(0,${ih})`);
+        const yAxisG = g.append("g").attr("class", "axis");
+        
+        g.append("text").attr("x", iw).attr("y", ih+30).attr("fill", "var(--accent)").attr("text-anchor", "end").style("font-weight","bold").text(getLabel(state.x));
+        g.append("text").attr("transform", "rotate(-90)").attr("x", 0).attr("y", -45).attr("fill", "var(--accent)").style("text-anchor", "end").style("font-weight","bold").text(getLabel(state.y));
+
+        const content = g.append("g").attr("clip-path", "url(#clip)");
+
+        const renderNodes = () => {
+            const nodes = content.selectAll(".n").data(getData()).enter().append("g")
+                .attr("class", "n")
+                .attr("transform", d => `translate(${xScale(d.r[state.x]||0)},${yScale(d.r[state.y]||0)})`);
+
+            nodes.append("circle").attr("r", d => getRadius(d,8) + getHalo(d,8)).attr("fill", d=>getHaloColor(d)).attr("opacity",0.2);
+
+            nodes.filter(d => !state.emojiOnly)
+                .append("circle").attr("r", d=>getRadius(d,8)).attr("fill", d=>getColor(d)).attr("opacity", d=>getOpacity(d)).attr("stroke","#fff").attr("stroke-width",1.5);
+
+            nodes.filter(d => state.showEmojis || state.emojiOnly)
+                .append("text").text(d=>d.emoji).attr("dy","0.35em").attr("text-anchor","middle").style("font-size", d=>(getRadius(d,8)*1.2)+"px").style("pointer-events","none");
+            
+            nodes.append("circle").attr("r", 15)
+                 .attr("fill", "transparent")
+                 .style("cursor", "pointer")
+                 .style("pointer-events", "all")
+                 .on("mousedown", (e) => {
+                    mousedownX = e.clientX;
+                    mousedownY = e.clientY;
+                 })
+                 .on("mouseup", (e, d) => {
+                    const deltaX = Math.abs(e.clientX - mousedownX);
+                    const deltaY = Math.abs(e.clientY - mousedownY);
+                    const moveThreshold = 5;
+                    
+                    if (deltaX < moveThreshold && deltaY < moveThreshold) {
+                        e.stopPropagation(); 
+                        syncListHighlight(d.id, d);
+                    }
+                 });
+
+            if(state.showLabels) {
+                content.selectAll(".lbl").data(getData()).enter().append("text")
+                    .attr("x", d=>xScale(d.r[state.x]||0)).attr("y", d=>yScale(d.r[state.y]||0)+getRadius(d,8)+15)
+                    .text(d=>d.title).attr("fill","#ccc").style("font-size","10px").attr("text-anchor","middle").style("pointer-events","none").style("text-shadow","0 1px 2px black");
+            }
+        }
+
+        xAxisG.call(d3.axisBottom(xScale).tickSize(-ih));
+        yAxisG.call(d3.axisLeft(yScale).tickSize(-iw));
+        renderNodes();
+    }
+
+
+    // Function to set up event listeners and perform initial calls
+    window.initializePolyScope = async function() {
+        
+        // --- 0. DATA SETUP (Static Mode Enforced) ---
+        // Load static data into state (this is the core fix for the "no data shown" issue)
+        state.naoData = RAW_DATA;
+        state.naoMap = new Map(RAW_DATA.map(d => [d.id, d]));
+        
+        // --- 1. SETUP SELECTS ---
+        populate($('xSel')); populate($('ySel')); populate($('zSel'));
+        $('xSel').value = state.x; $('ySel').value = state.y; $('zSel').value = state.z; 
+        populate($('sizeSel')); 
+        $('sizeSel').value = state.size; 
+        populate($('opacitySel')); 
+        populate($('haloSel'));
+        populateNaoDropdowns();
+        
+        // Check for DOM elements before using them
+        const metricInputsContainer = $('metricInputs');
+        if (metricInputsContainer) populateMetricInputs(METRICS);
+        
+        // --- 2. SETUP LEGEND & FILTERS ---
+        initLegend(); 
+
+        // --- 3. SETUP DRAG AND RESIZE ---
+        makeDraggable($('controls'), $('controls').querySelector('.panel-header'));
+        makeDraggable($('legend'), $('legend').querySelector('.panel-header'));
+        makeDraggable($('tooltip'), $('tooltip').querySelector('.panel-header'));
+        makeDraggable($('editor'), $('editor').querySelector('.panel-header')); // New editor panel
+        initResizer();
+
+        // --- 4. SETUP INPUT EVENT LISTENERS ---
+        // We must check if the elements exist before adding listeners/accessing properties
+        ['xSel','ySel','zSel','colorSel','sizeSel','opacitySel','haloSel','modeSel'].forEach(k => {
+            const el = $(k);
+            if (el) el.addEventListener('change', updateViz);
+        });
+        
+        if ($('showLabels')) $('showLabels').addEventListener('change', updateViz);
+        if ($('showEmojis')) $('showEmojis').addEventListener('change', updateViz);
+        if ($('emojiOnly')) $('emojiOnly').addEventListener('change', updateViz);
+        
+        // --- 5. INITIAL EXECUTION ---
+        init3D(); 
+        updateViz(); // This call triggers the initial rendering of the graph and the list.
+        
+        // Final UI updates for static mode
+        const addButton = $('addNaoBtn');
+        const saveButton = $('saveBtn'); 
+        const deleteButton = $('deleteBtn');
+
+        const headerRight = $('header') ? $('header').querySelector('.header-right') : null;
+
+        // FIX: Ensure all buttons are found before setting properties.
+        if (addButton && saveButton && deleteButton && headerRight) { 
+            // Disable persistence buttons as requested for static mode
+            addButton.disabled = true;
+            saveButton.disabled = true;
+            deleteButton.disabled = true;
+            
+            // Set header cue
+            headerRight.textContent = "V2.0 | N=100 (Static Data)";
+        }
+    }
+    
+    // Ensure initializePolyScope runs immediately after DOM load
+    window.onload = initializePolyScope;
 </script>
 </body>
 </html>
